@@ -1358,6 +1358,7 @@ function updateTowels(time) {
  */
 // Bodenkarte für das Gras: Höhe und Wuchs (0 kein Gras … 1 Wiese) als Textur, damit die Halme im Shader mit der Figur mitwandern können
 const GROUND = { size: 320, N: 512 };
+const grassFields = []; // die beiden Grasfelder, die der Figur folgen
 function groundTexture() {
     const { size, N } = GROUND, data = new Uint16Array(N * N * 2), half = THREE.DataUtils.toHalfFloat;
     for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
@@ -1390,14 +1391,14 @@ function createGrass() {
     blade.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0,1,0, 0,1,0, 0,1,0, 0,1,0, 0,1,0]), 3));
     grassUniforms = { uTime: { value: 0 }, uWind: { value: 0.5 }, uSnow: { value: 0 },
         uTip: { value: new THREE.Color() }, uBase: { value: new THREE.Color() },
-        uGround: { value: groundTexture() }, uGroundSize: { value: GROUND.size }, uCenter: { value: new THREE.Vector2() } };
+        uGround: { value: groundTexture() }, uGroundSize: { value: GROUND.size }, uCenter: { value: new THREE.Vector2() }, uAlt: { value: 0 } };
     const grassMat = (wrap, field = 1) => {
         const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.85 });
         if (wrap) mat.defines = { GRASS_WRAP: '' };
         mat.onBeforeCompile = (shader) => {
             Object.assign(shader.uniforms, grassUniforms, { uField: { value: field } });
             shader.vertexShader = `uniform float uTime; uniform float uWind; uniform float uSnow; varying float vBladeH; varying float vBladeRnd; varying vec2 vPatch;
-                uniform sampler2D uGround; uniform float uGroundSize; uniform float uField; uniform vec2 uCenter; vec3 gOff;\n`
+                uniform sampler2D uGround; uniform float uGroundSize; uniform float uField; uniform vec2 uCenter; uniform float uAlt; vec3 gOff;\n`
                 + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
                     vBladeH = position.y;
                     vec3 ip = instanceMatrix[3].xyz;
@@ -1407,7 +1408,7 @@ function createGrass() {
                         vec2 rel = mod(ip.xz - uCenter + uField * 0.5, uField) - uField * 0.5;
                         vec2 wp = uCenter + rel;
                         vec4 gm = texture2D(uGround, wp / uGroundSize + 0.5);
-                        float grow = gm.g * (1.0 - smoothstep(uField * 0.37, uField * 0.495, length(rel)));
+                        float grow = gm.g * (1.0 - smoothstep(uField * 0.37, uField * 0.495, length(rel))) * (1.0 - uAlt); // aus der Luft schrumpft das Gras weg
                         gOff = vec3(wp.x - ip.x, gm.r - 0.02 - ip.y, wp.y - ip.z);
                         ip = vec3(wp.x, gm.r, wp.y);
                         // Wiese wächst in Inseln unterschiedlich hoch
@@ -1460,6 +1461,7 @@ function createGrass() {
         mesh.receiveShadow = true;
         mesh.frustumCulled = false;
         scene.add(mesh);
+        grassFields.push(mesh);
     }
     const mat = grassMat(false);
 
@@ -1858,6 +1860,13 @@ function applySit(pl, astride = false) { // astride: im Sattel, die Beine hänge
 // HUBSCHRAUBER: mit F einsteigen. Leertaste steigt, Shift sinkt, W/S fliegt vor und zurück, A/D dreht. Aussteigen nur nach der Landung.
 let heli = null;
 const heliGround = (x, z) => { const g = heightAt(x, z), pad = PADS.find((q) => (x - q.x) ** 2 + (z - q.z) ** 2 < HELI.pad ** 2); return pad ? Math.max(g, pad.y) : Math.max(g, WATER_LEVEL); };
+// Dächer und Baumkronen: von oben kann man darauf aufsetzen, von der Seite kommt man nicht hindurch
+function obstacleTop(x, z) {
+    let top = -Infinity;
+    for (const b of BUILDINGS) if ((b.x - x) ** 2 + (b.z - z) ** 2 < (b.r * 0.85) ** 2) top = Math.max(top, heightAt(b.x, b.z) + b.h * 0.92);
+    for (const t of treeSpots) if ((t.x - x) ** 2 + (t.z - z) ** 2 < 4) top = Math.max(top, heightAt(t.x, t.z) + 8);
+    return top;
+}
 function placeHeli() {
     const h = heli;
     h.g.position.set(h.x, h.y, h.z);
@@ -1874,8 +1883,9 @@ function flyHeli(pl, fwd, side, up, dt) {
     h.heading -= side * dt * 1.3 * (air ? 1 : 0.25);
     h.speed += ((air ? Math.max(-0.5, Math.min(1, fwd)) * 17 : 0) - h.speed) * (1 - Math.exp(-dt * (air ? 0.9 : 4)));
     const sh = Math.sin(h.heading), ch = Math.cos(h.heading);
-    h.x += sh * h.speed * dt; h.z += ch * h.speed * dt;
-    const below = heliGround(h.x, h.z);
+    const nx = h.x + sh * h.speed * dt, nz = h.z + ch * h.speed * dt;
+    if (obstacleTop(nx, nz) > h.y + 0.4) h.speed *= -0.3; else { h.x = nx; h.z = nz; } // Haus oder Baum im Weg: abprallen
+    const below = Math.max(heliGround(h.x, h.z), obstacleTop(h.x, h.z));
     if (h.y <= below) { h.y = below; if (h.vy < 0) h.vy = 0; } // Berge schieben den Hubschrauber nach oben, am Boden steht er
     h.landed = h.y <= below + 0.02 && Math.abs(h.speed) < 0.6;
     h.pitch += (h.speed * 0.016 - h.pitch) * (1 - Math.exp(-dt * 3)); // Nase runter im Vorwärtsflug
@@ -4741,6 +4751,9 @@ function animate() {
     if (bales) bales.visible = S.bales > 0.5;
     grassUniforms.uTime.value = time;
     grassUniforms.uCenter.value.set(cam.target.x, cam.target.z);
+    // Aus dem Hubschrauber sähe man das Gras als Scheibe mitwandern: mit der Höhe schrumpft es weg und wird dann gar nicht mehr gezeichnet
+    grassUniforms.uAlt.value = smooth(14, 40, cam.target.y - 1.45 - heightAt(cam.target.x, cam.target.z));
+    for (const f of grassFields) f.visible = grassUniforms.uAlt.value < 0.995;
     grassUniforms.uWind.value = 0.05 + state.wind * 0.16;
     grassUniforms.uSnow.value = S.frost;
     grassUniforms.uTip.value.set(0x5f8a2e).multiply(S.grassTint).multiplyScalar(1 - state.wet * 0.15);
