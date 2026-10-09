@@ -64,6 +64,7 @@
         #intro button { font: inherit; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #10161c; background: #fff; border: 0; border-radius: 12px; padding: 13px 26px; cursor: pointer; }
         #intro button:disabled { background: rgba(255,255,255,0.35); cursor: default; }
         #fps { position: absolute; right: 20px; bottom: 20px; z-index: 10; display: none; color: #fff; font: 12px ui-monospace, monospace; padding: 5px 9px; border-radius: 8px; background: rgba(20,28,36,0.6); }
+        .fly { position: absolute; right: 22px; z-index: 10; display: none; width: 62px; height: 62px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.45); background: rgba(20,28,36,0.35); color: #fff; font-size: 24px; touch-action: none; }
         #hint {
             position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 10; display: none; cursor: pointer;
             padding: 9px 18px; border-radius: 12px; background: rgba(20, 28, 36, 0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -95,7 +96,7 @@
         <dl>
             <dt>W A S D</dt><dd>Laufen, mit Shift rennen. Am Handy: links der Steuerknüppel.</dd>
             <dt>Maus</dt><dd>Umsehen (Klick fängt die Maus, Esc löst sie), Mausrad zoomt. Am Handy: rechts wischen, zwei Finger zoomen.</dd>
-            <dt>F</dt><dd>Anfassen, was in der Nähe ist: Handtuch abnehmen, ins Boot steigen, aufs Pferd steigen, Jeep fahren, angeln (auf Steg und Brücke), Hund streicheln, hinsetzen. Der Hinweis unten zeigt, was gerade geht.</dd>
+            <dt>F</dt><dd>Anfassen, was in der Nähe ist: Handtuch abnehmen, ins Boot steigen, aufs Pferd steigen, Jeep fahren, Hubschrauber fliegen (Leertaste steigt, Shift sinkt), angeln (auf Steg und Brücke), Hund streicheln, hinsetzen. Der Hinweis unten zeigt, was gerade geht.</dd>
             <dt>Q · E · T</dt><dd>Jahreszeit, Wetter, Tageszeit weiter. Z hält die Zeit an.</dd>
             <dt>P · M</dt><dd>Foto speichern, Ton an und aus.</dd>
         </dl>
@@ -112,7 +113,9 @@
 <div id="stick"><i></i></div>
 <div id="hint" onclick="window.interact()"></div>
 <div id="fps"></div>
-<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Pferd, Jeep, Angeln, Hund, Hinsetzen | P: Foto | I: Bildrate | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
+<button class="fly" id="flyUp" style="bottom: 190px">▲</button>
+<button class="fly" id="flyDown" style="bottom: 116px">▼</button>
+<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Pferd, Jeep, Hubschrauber, Angeln, Hund, Hinsetzen | P: Foto | I: Bildrate | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
     <summary>Modelle &amp; Lizenzen</summary>
@@ -123,8 +126,8 @@
         „Old house“ von Tim0 · „Barn with one trim texture“ von korsun · „Проект пристройки“ von labarch ·
         „Low Poly Church“ von Yanez-Designs · „Windmill Stylized“ von a_l_e_x_a_n_d_e_r ·
         „Chicken – rigged“ von Maf'j Alvarez · „Lupe Goat“ von jackiebatteau · „Artia, the Walking Peasant“ von paolo.russo ·
-        „Willys Jeep Low Poly“ von InnocentBaraka · „Wooden Boat“ von o0ozexo0o · „Boat“ von bumstrum · „Malpas Wooden Boat Wreck“ von artfletch.
-        Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Stockente von Jonathon Jongsma (CC BY-SA 3.0), Schafe von earthcalling und Hahn von alys (gemeinfrei), Kuh von MichaeltheFox8621 (CC BY-SA 4.0), Glocke der Samariterkirche von Pete w. View und Rabenkrähe von Marie-Lan Taÿ Pamart (beide <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
+        „Willys Jeep Low Poly“ von InnocentBaraka · „Low Poly Helicopter“ von antonmoek · „Wooden Boat“ von o0ozexo0o · „Boat“ von bumstrum · „Malpas Wooden Boat Wreck“ von artfletch.
+        Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Stockente von Jonathon Jongsma (CC BY-SA 3.0), Schafe von earthcalling, Hahn von alys und Hubschrauber von ezwa (gemeinfrei), Kuh von MichaeltheFox8621 (CC BY-SA 4.0), Glocke der Samariterkirche von Pete w. View und Rabenkrähe von Marie-Lan Taÿ Pamart (beide <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
         Außerdem: „Cat“ von J-Toastie (CC BY 3.0, Poly Pizza), Dorf- und Tiermodelle von Quaternius (CC0), Texturen von Poly Haven (CC0), Bäume mit ez-tree.
     </p>
 </details>
@@ -475,6 +478,8 @@ const inField = (x, z, pad = 0) => {
 }
 // Bogenbrücke über den Fluss, flussab der Wäscheleine
 const BRIDGE = { z: -13, x0: -22, x1: -8, half: 0.8, rise: 1.5 };
+// Landeplatz des Hubschraubers auf der Wiese zwischen Wäscheleine und Dorf
+const HELI = { x: 21, z: 1, pad: 4.4, flip: 0 };
 // Lagerplatz am anderen Ufer; ein Pfad führt von der Wäscheleine über die Brücke dorthin
 const CAMP = { x: -27, z: -18 };
 PATHS.push({ ax: 1.5, az: -3, bx: BRIDGE.x1 + 0.3, bz: BRIDGE.z }, { ax: BRIDGE.x0 - 0.3, az: BRIDGE.z, bx: CAMP.x + 2.2, bz: CAMP.z + 1.2 });
@@ -500,7 +505,7 @@ const hedgeUniforms = { uTime: { value: 0 }, uTurn: { value: 0 }, uWinter: { val
 // Häuser der zweiten Reihe bekommen einen runden Garten mit Zaun (yard: Radius)
 const YARDS = BUILDINGS.filter((b) => b.clear && b.file !== 'windmill');
 for (const b of YARDS) b.yard = b.r + 2.8;
-const builtUp = (x, z) => inLot(x, z) || inField(x, z, 1) || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 16 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r + 1) ** 2);
+const builtUp = (x, z) => inLot(x, z) || inField(x, z, 1) || (x - HELI.x) ** 2 + (z - HELI.z) ** 2 < (HELI.pad + 1) ** 2 || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 16 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r + 1) ** 2);
 
 /**
  * ENGINE
@@ -540,7 +545,7 @@ const deckY = (x, z) => { const d = onDeck(x, z); return d ? (d.yAt ? d.yAt(x) :
 
 const obstacles = []; // { x, z, r } – Pfosten der Wäscheleine
 const keys = new Set();
-const touch = { fwd: 0, side: 0, run: false, stick: null, used: false }; // Steuerknüppel auf Touch-Geräten
+const touch = { fwd: 0, side: 0, run: false, stick: null, used: false, up: 0 }; // Steuerknüppel auf Touch-Geräten
 const START = new THREE.Vector3(5, 0, 6);
 // Verfolgerkamera: Maus dreht um die Figur, WASD läuft relativ zur Blickrichtung
 const cam = { yaw: Math.atan2(START.x, START.z), pitch: 0.16, dist: 4.5, target: new THREE.Vector3() };
@@ -714,6 +719,11 @@ async function init() {
         }
     };
     canvas.addEventListener('touchend', touchEnd); canvas.addEventListener('touchcancel', touchEnd);
+    for (const [id, dir] of [['flyUp', 1], ['flyDown', -1]]) { // Steigen und Sinken im Hubschrauber
+        const el = document.getElementById(id);
+        el.addEventListener('pointerdown', (e) => { e.preventDefault(); touch.up = dir; });
+        for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) el.addEventListener(ev, () => { touch.up = 0; });
+    }
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         cam.dist = THREE.MathUtils.clamp(cam.dist * Math.exp(e.deltaY * 0.001), 1.6, 40);
@@ -1350,6 +1360,7 @@ function groundTexture() {
         else if (inLot(x, z, 0.1) || YARDS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < b.yard ** 2)) grow = 0.26;                                            // gemähter Rasen in den Gärten
         else if (Math.hypot(x - PEN.x, z - PEN.z) < PEN.r) grow = 0.3;                     // abgeweidet
         if (grow > 0 && (x - ROAD.cx) ** 2 + (z - ROAD.cz) ** 2 < PATH_RAD ** 2) grow *= smooth(0.5, 1.4, pathDist(x, z)); // ausgetretene Pfade
+        if (grow > 0) grow *= smooth(HELI.pad - 0.2, HELI.pad + 0.6, Math.hypot(x - HELI.x, z - HELI.z)); // Landeplatz
         if (grow > 0) grow *= smooth(1.3, 2.6, Math.hypot(x - CAMP.x, z - CAMP.z)); // festgetretene Erde ums Lagerfeuer
         grow *= smooth(size * 0.49, size * 0.42, Math.max(Math.abs(x), Math.abs(z)));
         data[(j * N + i) * 2] = half(y); data[(j * N + i) * 2 + 1] = half(grow);
@@ -1491,6 +1502,7 @@ async function createTrees() {
         const z = (rand() - 0.5) * 230, x = riverX(z) + (rand() < 0.5 ? -1 : 1) * (6.2 + rand() * rand() * 5) * riverW(z);
         if (heightAt(x, z) < WATER_LEVEL + 0.3) return null;
         if (Math.hypot(x - LODGE.x, z - LODGE.z) < 3 || Math.hypot(x, z) < 9) return null; // Burg + Wäscheleine frei lassen
+        if ((x - HELI.x) ** 2 + (z - HELI.z) ** 2 < 100) return null; // Landeplatz
         if (pathDist(x, z) < 3.6 || (Math.abs(z - BRIDGE.z) < 4.5 && x > BRIDGE.x0 - 4 && x < BRIDGE.x1 + 4) || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 49) return null; // Pfade, Brücke, Lagerplatz
         return new THREE.Vector3(x, heightAt(x, z) - 0.12, z);
     };
@@ -1501,7 +1513,7 @@ async function createTrees() {
             const a = rand() * Math.PI * 2, r = Math.sqrt(lerp(rMin * rMin, rMax * rMax, rand()));
             const x = Math.cos(a) * r, z = Math.sin(a) * r;
             if (Math.abs(x - riverX(z)) < 9 * riverW(z) + 2 || pathDist(x, z) < 3) continue;
-            if (roadDist(x, z) < ROAD.half + 1 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.clear ?? b.r + 1) ** 2) || inField(x, z, 4) || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 49) continue;
+            if (roadDist(x, z) < ROAD.half + 1 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.clear ?? b.r + 1) ** 2) || inField(x, z, 4) || (x - HELI.x) ** 2 + (z - HELI.z) ** 2 < 144 || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 49) continue;
             const y = heightAt(x, z);
             if (y > maxH || tooClose(x, z, 6)) continue;
             // Blick von der Startkamera auf die Wäscheleine frei halten
@@ -1749,6 +1761,44 @@ function rowBoat(pl, fwd, side, dt) {
     if (u.wake < 0) { u.wake = 1.1; addRipple(b.position.x - sx * 1.2, b.position.z - sz * 1.2, 0.7); if (sound) soundBurst('bandpass', 1300, 0.6, 0.07, 0.3, 0, 500); } // Ruderschlag
 }
 // Handtuch abnehmen: es hängt dann gefaltet über der Schulter, bis man es wieder an die Leine hängt
+// VOM STURM VERWEHT: bei Gewitter reißt eine Bö ein Handtuch von der Leine. Es fliegt davon und bleibt in der Wiese liegen,
+// ein Lichtschein zeigt die Stelle. Aufheben mit F, dann zurück an die Leine hängen.
+const gale = { t: null, mesh: null, beam: null, from: new THREE.Vector3(), to: new THREE.Vector3(), k: 0, storm: 0, cool: 20, last: 0 };
+function updateGale(time) {
+    const dt = Math.min(time - gale.last, 0.1); gale.last = time;
+    gale.cool -= dt;
+    gale.storm = state.weather > 0.75 ? gale.storm + dt : 0;
+    if (!gale.t && gale.storm > 5 && gale.cool < 0 && player && !player.towel) { // eine kräftige Bö nach ein paar Sekunden Sturm
+        const hung = towels.filter((t) => !t.taken);
+        let spot = null;
+        for (let k = 0; k < 30 && !spot; k++) { const a = Math.random() * 6.28, r = 14 + Math.random() * 18, x = Math.cos(a) * r, z = Math.sin(a) * r; if (heightAt(x, z) > WATER_LEVEL + 0.4 && !builtUp(x, z) && walkable(x, z, Infinity)) spot = { x, z }; }
+        if (hung.length && spot) {
+            const t = hung[Math.floor(Math.random() * hung.length)], lineY = heightAt(0, 0);
+            t.taken = true; gale.t = t; gale.k = 0;
+            gale.from.set(t.x * LINE_COS, lineY + t.ropeY(t.x) - t.h / 2, -t.x * LINE_SIN);
+            gale.to.set(spot.x, heightAt(spot.x, spot.z) + 0.07, spot.z);
+            gale.mesh = new THREE.Mesh(new THREE.PlaneGeometry(t.w, t.h, 6, 8), t.mesh.material);
+            gale.mesh.castShadow = true; scene.add(gale.mesh);
+            if (!gale.beam) { gale.beam = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 14, 12, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff0b0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); gale.beam.layers.set(NO_MIRROR); scene.add(gale.beam); }
+            say('Ein Handtuch fliegt davon!', 3.5);
+        }
+    }
+    if (!gale.t) return;
+    if (gale.k < 1) { // Flug im Bogen, das Tuch überschlägt sich
+        gale.k = Math.min(1, gale.k + dt / 2.8);
+        gale.mesh.position.lerpVectors(gale.from, gale.to, gale.k).y += Math.sin(gale.k * Math.PI) * 7;
+        gale.mesh.rotation.set(gale.k * 9, gale.k * 5, gale.k * 7);
+        if (gale.k === 1) { gale.mesh.rotation.set(-Math.PI / 2, 0, Math.random() * 6.28); gale.mesh.position.copy(gale.to); gale.beam.position.set(gale.to.x, gale.to.y + 7, gale.to.z); }
+    }
+    gale.beam.material.opacity = gale.k === 1 ? 0.16 + 0.06 * Math.sin(time * 2.5) : 0;
+}
+const nearLost = () => { const p = player?.model.position; return p && gale.t && gale.k === 1 && !player.towel && !player.boat && !player.horse && !player.jeep && (gale.to.x - p.x) ** 2 + (gale.to.z - p.z) ** 2 < 1.8 ** 2; };
+function pickUpLost() {
+    const t = gale.t;
+    scene.remove(gale.mesh); gale.mesh.geometry.dispose(); gale.mesh = null; gale.t = null; gale.beam.material.opacity = 0; gale.cool = 90;
+    carryTowel(t);
+    say('Zurück an die Leine damit.', 3);
+}
 function carryTowel(t) {
     const pl = player;
     if (pl.towel) { pl.towel.t.taken = false; pl.model.remove(pl.towel.mesh); pl.towel.mesh.geometry.dispose(); pl.towel = null; }
@@ -1794,6 +1844,63 @@ function applySit(pl, astride = false) { // astride: im Sattel, die Beine hänge
             aimBone(shin, foot, lean(sitV[2].set(sh * reach, -1, ch * reach).normalize()));
         }
     }
+}
+// HUBSCHRAUBER: mit F einsteigen. Leertaste steigt, Shift sinkt, W/S fliegt vor und zurück, A/D dreht. Aussteigen nur nach der Landung.
+let heli = null;
+const heliGround = (x, z) => { const g = heightAt(x, z); return (x - HELI.x) ** 2 + (z - HELI.z) ** 2 < HELI.pad ** 2 ? Math.max(g, heli?.padY ?? g) : Math.max(g, WATER_LEVEL); };
+function placeHeli() {
+    const h = heli;
+    h.g.position.set(h.x, h.y, h.z);
+    h.g.rotation.set(h.pitch, h.heading, h.roll);
+    h.ob.x = h.x; h.ob.z = h.z;
+}
+function flyHeli(pl, fwd, side, up, dt) {
+    const h = heli, p = pl.model.position;
+    h.spin += (1 - h.spin) * (1 - Math.exp(-dt * 0.9)); // die Rotoren laufen an
+    const ground = heliGround(h.x, h.z), ready = h.spin > 0.75;
+    h.vy += ((ready ? up * 7 : 0) - h.vy) * (1 - Math.exp(-dt * 1.8));
+    h.y = Math.min(260, h.y + h.vy * dt);
+    const air = h.y > ground + 0.05;
+    h.heading -= side * dt * 1.3 * (air ? 1 : 0.25);
+    h.speed += ((air ? Math.max(-0.5, Math.min(1, fwd)) * 17 : 0) - h.speed) * (1 - Math.exp(-dt * (air ? 0.9 : 4)));
+    const sh = Math.sin(h.heading), ch = Math.cos(h.heading);
+    h.x += sh * h.speed * dt; h.z += ch * h.speed * dt;
+    const below = heliGround(h.x, h.z);
+    if (h.y <= below) { h.y = below; if (h.vy < 0) h.vy = 0; } // Berge schieben den Hubschrauber nach oben, am Boden steht er
+    h.landed = h.y <= below + 0.02 && Math.abs(h.speed) < 0.6;
+    h.pitch += (h.speed * 0.016 - h.pitch) * (1 - Math.exp(-dt * 3)); // Nase runter im Vorwärtsflug
+    h.roll += ((air ? side * 0.22 : 0) - h.roll) * (1 - Math.exp(-dt * 3));
+    placeHeli();
+    p.set(h.x, h.y + 0.4, h.z); pl.heading = h.heading;
+    if (h.spin > 0.5 && h.y < below + 4 && (dust.wait -= dt) < 0) { dust.wait = 0.04; const a = Math.random() * 6.28; emitDust(h.x + Math.cos(a) * 2.5, below + 0.1, h.z + Math.sin(a) * 2.5, Math.cos(a) * 3, Math.sin(a) * 3); } // Abwind wirbelt Staub auf
+}
+function spinRotors(dt) { // Rotoren drehen auch nach dem Aussteigen noch aus
+    const h = heli;
+    if (!h) return;
+    if (!player?.heli) h.spin *= Math.exp(-dt * 0.5);
+    if (h.main) h.main.rotateY(h.spin * dt * 24);
+    if (h.tail) h.tail.rotateZ(h.spin * dt * 40);
+    if (sound) { // Aufnahme eines Hubschraubers als Schleife, lauter und höher mit der Drehzahl
+        if (!sound.rotor && sound.samples?.heli) {
+            const { ctx } = sound, src = ctx.createBufferSource(), g = ctx.createGain();
+            src.buffer = sound.samples.heli; src.loop = true; src.loopStart = 10.5; src.loopEnd = 14.2; g.gain.value = 0;
+            src.connect(g).connect(sound.master); src.start(0, 10.5);
+            sound.rotor = { src, g };
+        }
+        if (sound.rotor) {
+            const pp = player ? player.model.position : START, near = smooth(140, 8, Math.hypot(pp.x - h.x, pp.y - h.y, pp.z - h.z)), now = sound.ctx.currentTime;
+            sound.rotor.g.gain.setTargetAtTime(h.spin > 0.03 ? 2.4 * h.spin * near : 0, now, 0.2);
+            sound.rotor.src.playbackRate.setTargetAtTime(0.6 + 0.45 * h.spin, now, 0.2);
+        }
+    }
+}
+const nearHeli = () => { const p = player?.model.position; return heli && p && !player.boat && !player.horse && !player.jeep && !player.sitting && (heli.x - p.x) ** 2 + (heli.z - p.z) ** 2 < 4 ** 2 && Math.abs(heli.y - p.y) < 2; };
+function leaveHeli() {
+    const pl = player, h = heli;
+    if (!h.landed) return; // erst landen
+    pl.heli = false; pl.model.visible = true; h.ob.r = 2.6; h.speed = 0; h.vy = 0;
+    document.getElementById('flyUp').style.display = document.getElementById('flyDown').style.display = 'none';
+    for (const a of [Math.PI / 2, -Math.PI / 2, 0, Math.PI]) { const x = h.x + Math.sin(h.heading + a) * 3.2, z = h.z + Math.cos(h.heading + a) * 3.2; if (walkable(x, z, Infinity)) { pl.model.position.x = x; pl.model.position.z = z; return; } }
 }
 // STAUB: wirbelt hinter dem fahrenden Jeep und dem galoppierenden Pferd auf, solange der Boden trocken ist
 const dust = { n: 96, i: 0, u: { uTime: { value: 0 }, uScale: { value: 600 }, uColor: { value: new THREE.Color(0.62, 0.55, 0.43) } }, mesh: null, wait: 0 };
@@ -1997,6 +2104,7 @@ function interact() {
         if (pl.fishing.biting) { gear.caught++; say(gear.caught === 1 ? 'Ein Fisch!' : `Noch ein Fisch! (${gear.caught})`, 3); if (sound) soundBurst('bandpass', 1200, 0.6, 0.1, 0.3, 0, 400); }
         return stopFishing();
     }
+    if (pl.heli) return leaveHeli();
     if (pl.sitting) return standUp();
     if (pl.jeep) return leaveJeep();
     if (pl.horse) { // absteigen, links neben das Pferd
@@ -2005,11 +2113,17 @@ function interact() {
         return;
     }
     if (pl.towel && nearLine()) return carryTowel(null);
+    if (nearLost()) return pickUpLost();
     const t = !pl.towel && towelAt();
     if (t) return carryTowel(t);
     const b = nearBoat();
     if (b && S.ice < 0.5) { pl.boat = b; b.userData.speed = 0; return; }
     if (nearJeep()) { pl.jeep = true; jeep.ob.r = 0; return; }
+    if (nearHeli()) { // einsteigen: die Figur verschwindet in der Kabine, die Kamera geht auf Abstand
+        pl.heli = true; pl.model.visible = false; heli.ob.r = 0; cam.dist = Math.max(cam.dist, 13);
+        if (touch.used) document.getElementById('flyUp').style.display = document.getElementById('flyDown').style.display = 'block';
+        return;
+    }
     const horse = nearHorse();
     if (horse) { pl.horse = horse; horse.ridden = true; return; }
     const seat = nearSeat();
@@ -2035,10 +2149,13 @@ function updateHint() {
     else if (player?.sitting) text = `${key}: Aufstehen`;
     else if (player?.horse) text = `${key}: Absteigen`;
     else if (player?.jeep) text = `${key}: Aussteigen`;
+    else if (player?.heli) text = heli.landed ? (heli.spin > 0.75 ? `Leertaste: Abheben | ${key}: Aussteigen` : 'Rotoren laufen an …') : 'Leertaste steigt, Shift sinkt – zum Aussteigen landen';
     else if (player?.towel && nearLine()) text = `${key}: Handtuch aufhängen`;
+    else if (nearLost()) text = `${key}: Handtuch aufheben`;
     else if (!player?.towel && towelAt()) text = `${key}: Handtuch abnehmen`;
     else if (nearBoat()) text = S.ice < 0.5 ? `${key}: Ins Boot steigen` : 'Der Fluss ist zugefroren';
     else if (nearJeep()) text = `${key}: In den Jeep steigen`;
+    else if (nearHeli()) text = `${key}: In den Hubschrauber steigen`;
     else if (nearHorse()) text = `${key}: Aufs Pferd steigen`;
     else if (nearSeat()) text = `${key}: Hinsetzen`;
     else if (canFish()) text = S.ice < 0.5 ? `${key}: Angeln` : 'Der Fluss ist zugefroren';
@@ -2053,10 +2170,11 @@ function updatePlayer(dt) {
     const wantsMove = fwd !== 0 || side !== 0;
     const wantsRun = wantsMove && (k('ShiftLeft', 'ShiftRight') || touch.run);
     if (player) player.input = { fwd, side, run: wantsRun };
+    const climb = k('Space') - k('ShiftLeft', 'ShiftRight') + touch.up;
 
     if (player) {
         const pl = player, p = pl.model.position;
-        pl.moving += ((wantsMove && !pl.boat && !pl.sitting && !pl.horse && !pl.jeep ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
+        pl.moving += ((wantsMove && !pl.boat && !pl.sitting && !pl.horse && !pl.jeep && !pl.heli ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
         pl.running += ((wantsRun ? 1 : 0) - pl.running) * (1 - Math.exp(-dt * 6));
         if (pl.sitting && wantsMove) standUp(); // loslaufen heißt aufstehen
         if (pl.fishing && wantsMove) stopFishing();
@@ -2064,6 +2182,7 @@ function updatePlayer(dt) {
         else if (pl.sitting) { p.x = pl.sitting.x; p.z = pl.sitting.z; }
         else if (pl.horse) { /* Ort und Richtung setzt rideHorse */ }
         else if (pl.jeep) driveJeep(pl, fwd, side, wantsRun, dt);
+        else if (pl.heli) flyHeli(pl, fwd, side, climb, dt);
         else if (wantsMove) {
             // Blickrichtung der Kamera auf dem Boden: vorwärts (-sin, -cos), rechts (cos, -sin)
             const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
@@ -2084,9 +2203,9 @@ function updatePlayer(dt) {
             else if (free(nx, p.z)) p.x = nx;      // an Hindernissen entlanggleiten
             else if (free(p.x, nz)) p.z = nz;
         }
-        if (!pl.boat && !pl.horse && !pl.jeep) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
+        if (!pl.boat && !pl.horse && !pl.jeep && !pl.heli) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
         pl.wake = (pl.wake ?? 0) - dt * (0.4 + pl.moving * (1 + pl.running));
-        if (!pl.boat && !pl.horse && !pl.jeep && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
+        if (!pl.boat && !pl.horse && !pl.jeep && !pl.heli && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
         // im Jeep sitzt die Figur fest im Wagen und neigt sich mit ihm
         if (pl.jeep) pl.model.quaternion.copy(jeep.g.quaternion); else pl.model.rotation.set(0, pl.heading, 0);
         pl.idle.setEffectiveWeight(1 - pl.moving);
@@ -3356,6 +3475,33 @@ async function createVillage() {
         scene.add(deck, posts);
         decks.push({ x0, x1, z0: z - 0.65, z1: z + 0.65, y: y + 0.035, low: true });
     }
+    // Hubschrauber auf seinem Landeplatz ("Low Poly Helicopter" von antonmoek, sketchfab.com, CC-BY 4.0)
+    try {
+        const { x, z, pad } = HELI;
+        let padY = heightAt(x, z);
+        for (let k = 0; k < 8; k++) padY = Math.max(padY, heightAt(x + Math.cos(k * 0.785) * pad, z + Math.sin(k * 0.785) * pad));
+        padY += 0.06;
+        const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+        const g2 = cv.getContext('2d'); g2.fillStyle = '#8b8d8c'; g2.fillRect(0, 0, 256, 256);
+        g2.strokeStyle = '#f2efe6'; g2.lineWidth = 9; g2.beginPath(); g2.arc(128, 128, 104, 0, 6.3); g2.stroke();
+        g2.fillStyle = '#f2efe6'; g2.font = '700 150px system-ui, sans-serif'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText('H', 128, 138);
+        const padTex = new THREE.CanvasTexture(cv); padTex.colorSpace = THREE.SRGBColorSpace; padTex.anisotropy = 8;
+        const slab = new THREE.Mesh(new THREE.CylinderGeometry(pad, pad + 0.3, 1.2, 40), [new THREE.MeshStandardMaterial({ color: 0x7c7e7d, roughness: 1 }), new THREE.MeshStandardMaterial({ map: padTex, roughness: 0.95 }), new THREE.MeshStandardMaterial({ color: 0x7c7e7d })]);
+        slab.position.set(x, padY - 0.6, z); slab.receiveShadow = true; scene.add(slab);
+        decks.push({ x0: x - pad * 0.72, x1: x + pad * 0.72, z0: z - pad * 0.72, z1: z + pad * 0.72, y: padY }); // man kann auf die Platte treten
+        const m = (await loader.loadAsync('village/heli.glb')).scene, box = new THREE.Box3();
+        m.updateMatrixWorld(true);
+        let main = null, tail = null;
+        m.traverse((o) => { if (o.name === 'Propeller_2') main = o; if (o.name === 'Propeller') tail = o; if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.material.metalness = 0; o.material.roughness = Math.max(o.material.roughness, 0.6); if (!/Propeller_2/.test(o.name)) box.expandByObject(o); } });
+        const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3()), sc = 8.5 / Math.max(size.x, size.z), turn = new THREE.Group(), g = new THREE.Group();
+        m.scale.multiplyScalar(sc); m.position.set(-c.x * sc, -box.min.y * sc, -c.z * sc);
+        turn.add(m); turn.rotation.y = (size.x > size.z ? Math.PI / 2 : 0) + HELI.flip; // Nase zeigt nach +z
+        g.add(turn); g.rotation.order = 'YXZ';
+        heli = { g, main, tail, padY, x, y: padY, z, heading: 2.2, pitch: 0, roll: 0, speed: 0, vy: 0, spin: 0, landed: true, ob: { x, z, r: 2.6 } };
+        obstacles.push(heli.ob);
+        placeHeli();
+        scene.add(g);
+    } catch (err) { console.warn('Modell fehlt: heli', err); }
     // Jeep zum Fahren, geparkt am Wegrand vor der Kirche ("Willys Jeep Low Poly" von InnocentBaraka, sketchfab.com, CC-BY 4.0)
     try {
         const m = (await loader.loadAsync('village/jeep.glb')).scene;
@@ -4188,7 +4334,7 @@ function startSound() {
         bird: 1, crickets: [], step: 0 };
     // Aufnahmen für Laute, die sich schlecht erzeugen lassen (Hund, Glocke); fehlen sie, bleibt es beim erzeugten Klang
     sound.samples = {};
-    for (const name of ['bark1.ogg', 'bark2.ogg', 'bell.ogg', 'crow.mp3', 'duck.mp3', 'sheep.ogg', 'rooster.ogg', 'cow.ogg']) fetch(`sounds/${name}`).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((b) => { sound.samples[name.split('.')[0]] = b; }).catch(() => {});
+    for (const name of ['bark1.ogg', 'bark2.ogg', 'bell.ogg', 'crow.mp3', 'duck.mp3', 'sheep.ogg', 'rooster.ogg', 'cow.ogg', 'heli.ogg']) fetch(`sounds/${name}`).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((b) => { sound.samples[name.split('.')[0]] = b; }).catch(() => {});
     // Grillen: mehrere Tiere, jedes mit eigener Tonhöhe und eigenem Platz; gezirpt wird in updateSound in kurzen Dreierstößen
     sound.crickets = Array.from({ length: 5 }, () => {
         const osc = ctx.createOscillator(), g = ctx.createGain(), pan = ctx.createStereoPanner?.() ?? ctx.createGain();
@@ -4537,6 +4683,7 @@ function animate() {
     }
 
     updateTowels(time);
+    updateGale(time);
     updatePlayer(dt);
     updateFish(dt, time);
     updateCrayfish(dt);
@@ -4544,6 +4691,7 @@ function animate() {
     updateDucks(dt, time);
     updateRainbow(day);
     updateBalloon(time);
+    spinRotors(dt);
     updateHint();
     nightNow = 1 - smooth(0.15, 0.6, day);
     updateCritters(dt, time);
