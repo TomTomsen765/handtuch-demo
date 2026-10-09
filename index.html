@@ -119,7 +119,7 @@
     <button class="btn" onclick="window.toggleSeason()">Q · Jahreszeit <b id="seasonLabel">Sommer</b></button>
     <button class="btn" onclick="window.toggleWeather()">E · Wetter <b id="weatherLabel">Heiter</b></button>
     <button class="btn" onclick="window.toggleTime()">T · Tageszeit <b id="todLabel">Tag 13:00</b></button>
-    <button class="btn" onclick="window.toggleGoals()">Entdeckungen <b id="goalsLabel">0/13</b></button>
+    <button class="btn" onclick="window.toggleGoals()">Entdeckungen <b id="goalsLabel">0/14</b></button>
     <button class="btn" onclick="document.getElementById('intro').classList.remove('gone')">Hilfe <b>?</b></button>
 </div>
 <div id="hello"></div>
@@ -1933,7 +1933,14 @@ function flyHeli(pl, fwd, side, up, dt) {
 function spinRotors(dt) { // Rotoren drehen auch nach dem Aussteigen noch aus
     const h = heli;
     if (!h) return;
-    if (!player?.heli) h.spin *= Math.exp(-dt * 0.5);
+    if (h.auto && !player?.heli) { // verlassen in der Luft: sinkt von selbst und setzt auf
+        const below = Math.max(heliGround(h.x, h.z), obstacleTop(h.x, h.z));
+        h.speed *= Math.exp(-dt * 1.5); h.x += Math.sin(h.heading) * h.speed * dt; h.z += Math.cos(h.heading) * h.speed * dt;
+        h.y = Math.max(below, h.y - 4.5 * dt); h.pitch *= Math.exp(-dt * 2); h.roll *= Math.exp(-dt * 2); h.vy = 0;
+        placeHeli();
+        if (h.y <= below) { h.auto = false; h.landed = true; h.speed = 0; }
+    } else if (!player?.heli) h.spin *= Math.exp(-dt * 0.5);
+    if (player?.heli) h.auto = false;
     if (h.main) h.main.rotateY(h.spin * dt * 24);
     if (h.tail) h.tail.rotateZ(h.spin * dt * 40);
     if (sound) { // Aufnahme eines Hubschraubers als Schleife, lauter und höher mit der Drehzahl
@@ -1951,8 +1958,54 @@ function spinRotors(dt) { // Rotoren drehen auch nach dem Aussteigen noch aus
     }
 }
 const nearHeli = () => { const p = player?.model.position; return heli && p && !player.boat && !player.horse && !player.jeep && !player.sitting && (heli.x - p.x) ** 2 + (heli.z - p.z) ** 2 < 4 ** 2 && Math.abs(heli.y - p.y) < 2; };
+// FALLSCHIRM: wer hoch genug fliegt, kann mit F abspringen. Erst fällt man kurz, dann öffnet sich der Schirm; mit den Lauftasten
+// lenkt man im Sinken. Der Hubschrauber geht währenddessen von selbst zu Boden.
+let chute = null;
+function jumpOut() {
+    const pl = player, h = heli, p = pl.model.position;
+    pl.heli = false; pl.model.visible = true; h.ob.r = 2.6; h.auto = true;
+    document.getElementById('flyUp').style.display = document.getElementById('flyDown').style.display = 'none';
+    p.set(h.x - Math.cos(h.heading) * 2.2, h.y - 0.5, h.z + Math.sin(h.heading) * 2.2);
+    pl.chute = { t: 0, vy: -1 };
+    if (!chute) { // Kappe aus gestreiften Bahnen, vier Leinen
+        chute = new THREE.Group();
+        const cv = document.createElement('canvas'); cv.width = 128; cv.height = 8;
+        const g2 = cv.getContext('2d'); for (let i = 0; i < 8; i++) { g2.fillStyle = i % 2 ? '#f3ead8' : '#e0572c'; g2.fillRect(i * 16, 0, 16, 8); }
+        const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+        const canopy = new THREE.Mesh(new THREE.SphereGeometry(2.7, 24, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.9 }));
+        canopy.position.y = 3.6; canopy.castShadow = true; chute.add(canopy);
+        const pts = [];
+        for (let k = 0; k < 8; k++) { const a = k * 0.785; pts.push(0, 1.5, 0, Math.cos(a) * 2.6, 4.75, Math.sin(a) * 2.6); }
+        chute.add(new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)), new THREE.LineBasicMaterial({ color: 0xe8e8e0 })));
+        chute.traverse((o) => { o.frustumCulled = false; });
+        scene.add(chute);
+    }
+    earn('jump');
+}
+function glide(pl, fwd, side, dt) {
+    const c = pl.chute, p = pl.model.position;
+    c.t += dt;
+    const open = smooth(0.35, 1.0, c.t); // kurzer freier Fall, dann trägt der Schirm
+    c.vy += ((open > 0.5 ? -4.2 : -10) - c.vy) * (1 - Math.exp(-dt * (open > 0.5 ? 2.5 : 0.9)));
+    if (fwd !== 0 || side !== 0) { // lenken relativ zur Kamera
+        const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
+        let dx = -sy * fwd + cy * side, dz = -cy * fwd - sy * side;
+        const len = Math.hypot(dx, dz); dx /= len; dz /= len;
+        let turn = Math.atan2(dx, dz) - pl.heading;
+        turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+        pl.heading += turn * (1 - Math.exp(-dt * 3));
+        p.x += dx * 5.5 * open * dt; p.z += dz * 5.5 * open * dt;
+    }
+    p.y += c.vy * dt;
+    const ground = Math.max(heightAt(p.x, p.z), deckY(p.x, p.z), WATER_LEVEL - 0.4);
+    chute.visible = true;
+    chute.position.set(p.x, p.y, p.z); chute.scale.set(open, 0.25 + 0.75 * open, open);
+    chute.rotation.set(Math.sin(c.t * 1.3) * 0.06, pl.heading, Math.cos(c.t * 1.1) * 0.06);
+    if (p.y <= ground) { p.y = ground; pl.chute = null; chute.visible = false; if (sound) soundBurst('lowpass', 300, 0.6, 0.12, 0.25); } // gelandet
+}
 function leaveHeli() {
     const pl = player, h = heli;
+    if (!h.landed && h.y > Math.max(heliGround(h.x, h.z), obstacleTop(h.x, h.z)) + 14) return jumpOut(); // hoch genug: abspringen
     if (!h.landed) return; // erst landen
     pl.heli = false; pl.model.visible = true; h.ob.r = 2.6; h.speed = 0; h.vy = 0;
     document.getElementById('flyUp').style.display = document.getElementById('flyDown').style.display = 'none';
@@ -2109,7 +2162,7 @@ function standUp() {
 const GOALS = [
     ['bridge', 'Über die Brücke ans andere Ufer gehen'], ['fire', 'Am Lagerfeuer sitzen'], ['dog', 'Einen Hund streicheln'], ['fish', 'Einen Fisch angeln'],
     ['boat', 'Mit dem Boot rudern'], ['ride', 'Auf dem Pferd galoppieren'], ['jeep', 'Mit dem Jeep bis ans Ende der Fahrspur fahren'], ['towel', 'Ein verwehtes Handtuch zurück an die Leine hängen'],
-    ['alp', 'Mit dem Hubschrauber auf der Alm landen'], ['roof', 'Auf einem Hausdach landen'], ['peak', 'Am Gipfelkreuz stehen'], ['aurora', 'Das Polarlicht sehen'], ['photo', 'Ein Foto machen']
+    ['alp', 'Mit dem Hubschrauber auf der Alm landen'], ['roof', 'Auf einem Hausdach landen'], ['peak', 'Am Gipfelkreuz stehen'], ['jump', 'Mit dem Fallschirm aus dem Hubschrauber springen'], ['aurora', 'Das Polarlicht sehen'], ['photo', 'Ein Foto machen']
 ];
 const found = new Set();
 try { for (const id of JSON.parse(localStorage.getItem('handtuch-entdeckungen') ?? '[]')) if (GOALS.some((g) => g[0] === id)) found.add(id); } catch { /* ohne Speicher zählt nur diese Sitzung */ }
@@ -2186,6 +2239,7 @@ function interact() {
         if (pl.fishing.biting) { earn('fish'); gear.caught++; say(gear.caught === 1 ? 'Ein Fisch!' : `Noch ein Fisch! (${gear.caught})`, 3); if (sound) soundBurst('bandpass', 1200, 0.6, 0.1, 0.3, 0, 400); }
         return stopFishing();
     }
+    if (pl.chute) return;
     if (pl.heli) return leaveHeli();
     if (pl.sitting) return standUp();
     if (pl.jeep) return leaveJeep();
@@ -2227,12 +2281,14 @@ window.closeIntro = () => { document.getElementById('intro').classList.add('gone
 function updateHint() {
     const el = document.getElementById('hint'), key = touch.used ? 'Tippen' : 'F';
     let text = '';
-    if (player?.fishing) text = player.fishing.biting ? `${key}: Es beißt! Einholen` : `${key}: Angel einpacken`;
+    if (player?.chute) text = 'Lauftasten lenken den Fallschirm';
+    else if (player?.fishing) text = player.fishing.biting ? `${key}: Es beißt! Einholen` : `${key}: Angel einpacken`;
     else if (player?.boat) text = `${key}: Aussteigen (am Ufer)`;
     else if (player?.sitting) text = `${key}: Aufstehen`;
     else if (player?.horse) text = `${key}: Absteigen`;
     else if (player?.jeep) text = `${key}: Aussteigen`;
-    else if (player?.heli) text = heli.landed ? (heli.spin > 0.75 ? `Leertaste: Abheben | ${key}: Aussteigen` : 'Rotoren laufen an …') : 'Leertaste steigt, Shift sinkt – zum Aussteigen landen';
+    else if (player?.heli) text = heli.landed ? (heli.spin > 0.75 ? `Leertaste: Abheben | ${key}: Aussteigen` : 'Rotoren laufen an …')
+        : heli.y > Math.max(heliGround(heli.x, heli.z), obstacleTop(heli.x, heli.z)) + 14 ? `Leertaste steigt, Shift sinkt | ${key}: Mit dem Fallschirm abspringen` : 'Leertaste steigt, Shift sinkt – zum Aussteigen landen';
     else if (player?.towel && nearLine()) text = `${key}: Handtuch aufhängen`;
     else if (nearLost()) text = `${key}: Handtuch aufheben`;
     else if (!player?.towel && towelAt()) text = `${key}: Handtuch abnehmen`;
@@ -2257,7 +2313,7 @@ function updatePlayer(dt) {
 
     if (player) {
         const pl = player, p = pl.model.position;
-        pl.moving += ((wantsMove && !pl.boat && !pl.sitting && !pl.horse && !pl.jeep && !pl.heli ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
+        pl.moving += ((wantsMove && !pl.boat && !pl.sitting && !pl.horse && !pl.jeep && !pl.heli && !pl.chute ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
         pl.running += ((wantsRun ? 1 : 0) - pl.running) * (1 - Math.exp(-dt * 6));
         if (pl.sitting && wantsMove) standUp(); // loslaufen heißt aufstehen
         if (pl.fishing && wantsMove) stopFishing();
@@ -2266,6 +2322,7 @@ function updatePlayer(dt) {
         else if (pl.horse) { /* Ort und Richtung setzt rideHorse */ }
         else if (pl.jeep) driveJeep(pl, fwd, side, wantsRun, dt);
         else if (pl.heli) flyHeli(pl, fwd, side, climb, dt);
+        else if (pl.chute) glide(pl, fwd, side, dt);
         else if (wantsMove) {
             // Blickrichtung der Kamera auf dem Boden: vorwärts (-sin, -cos), rechts (cos, -sin)
             const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
@@ -2286,9 +2343,9 @@ function updatePlayer(dt) {
             else if (free(nx, p.z)) p.x = nx;      // an Hindernissen entlanggleiten
             else if (free(p.x, nz)) p.z = nz;
         }
-        if (!pl.boat && !pl.horse && !pl.jeep && !pl.heli) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
+        if (!pl.boat && !pl.horse && !pl.jeep && !pl.heli && !pl.chute) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
         pl.wake = (pl.wake ?? 0) - dt * (0.4 + pl.moving * (1 + pl.running));
-        if (!pl.boat && !pl.horse && !pl.jeep && !pl.heli && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
+        if (!pl.boat && !pl.horse && !pl.jeep && !pl.heli && !pl.chute && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
         // im Jeep sitzt die Figur fest im Wagen und neigt sich mit ihm
         if (pl.jeep) pl.model.quaternion.copy(jeep.g.quaternion); else pl.model.rotation.set(0, pl.heading, 0);
         pl.idle.setEffectiveWeight(1 - pl.moving);
@@ -2308,7 +2365,7 @@ function updatePlayer(dt) {
         for (const b of pl.blinkers) { b.mesh.morphTargetInfluences[b.l] = lid; b.mesh.morphTargetInfluences[b.r] = lid; }
 
         cam.target.set(p.x, p.y + 1.45, p.z);
-        if ((!pl.heli || heli.landed) && (p.x - PEAK.x) ** 2 + (p.z - PEAK.z) ** 2 < 64) earn('peak');
+        if ((!pl.heli || heli.landed) && !pl.chute && (p.x - PEAK.x) ** 2 + (p.z - PEAK.z) ** 2 < 64) earn('peak');
         if (!pl.boat && !pl.heli && Math.abs(p.z - BRIDGE.z) < BRIDGE.half && p.x < BRIDGE.x0 + 1.5 && p.x > BRIDGE.x0 - 1 && p.y > heightAt(p.x, p.z) - 0.2) earn('bridge');
         // Schattenbereich wandert mit der Figur
         sun.target.position.copy(p);
