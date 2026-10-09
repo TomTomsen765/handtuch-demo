@@ -348,18 +348,18 @@ const BUILDINGS = [
     // zweite Reihe hinter den Gärten, jeweils auf einer Lichtung (alle sketchfab.com, CC-BY 4.0; verkleinert mit gltf-transform):
     // Holzhäuser und Baumhütte von iGauravRajput, "Old house" von Tim0, "Barn with one trim texture" von korsun, Anbau von labarch
     { file: 'wooden', t: 0.12, off: 26, h: 5, r: 3.6, own: true, clear: 8 },
-    { file: 'rusty', t: 0.30, off: 31, h: 5, r: 3.6, own: true, clear: 8 },
+    { file: 'rusty', smoke: true, t: 0.30, off: 31, h: 5, r: 3.6, own: true, clear: 8 },
     { file: 'oldrusty', t: 0.52, off: 33, h: 5, r: 3.6, own: true, clear: 8 },
-    { file: 'woodhouse', t: 0.72, off: 29, h: 5.5, r: 3.6, own: true, clear: 8 },
+    { file: 'woodhouse', smoke: true, t: 0.72, off: 29, h: 5.5, r: 3.6, own: true, clear: 8 },
     { file: 'treehut', t: 0.93, off: 34, h: 7.5, r: 3.6, own: true, clear: 8 },
-    { file: 'ahouse', t: 0.05, off: -30, h: 6.5, r: 3.8, own: true, clear: 8 },
+    { file: 'ahouse', smoke: true, t: 0.05, off: -30, h: 6.5, r: 3.8, own: true, clear: 8 },
     { file: 'oldhouse', t: 0.26, off: -50, h: 6, r: 4.5, own: true, clear: 9 },
     { file: 'annex', t: 0.72, off: -46, h: 5, r: 4.5, own: true, clear: 9 },
     { file: 'barn2', t: 0.88, off: -38, h: 4.6, r: 5, own: true, clear: 10 },
     { file: 'house1', t: 0.2, off: 10, h: 7.2, r: 4.2, rot: Math.PI },
     { file: 'house2', t: 0.29, off: -10, h: 5.6, r: 4.0, rot: Math.PI },
     { file: 'coop', t: 0.385, off: 7.5, h: 2.1, r: 1.5 },
-    { file: 'house3', t: 0.46, off: -10.5, h: 7.0, r: 4.0, rot: Math.PI },
+    { file: 'house3', smoke: true, t: 0.46, off: -10.5, h: 7.0, r: 4.0, rot: Math.PI },
     { file: 'house4', t: 0.61, off: 10.5, h: 5.8, r: 4.2, rot: Math.PI },
     { file: 'stable', t: 0.66, off: -10.5, h: 4.6, r: 4.2, rot: Math.PI },
     { file: 'smallbarn', t: 0.78, off: 11, h: 5, r: 3.8 },
@@ -443,6 +443,8 @@ const ripples = Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -100, 0)
 let rippleIdx = 0;
 const addRipple = (x, z, strength = 1) => ripples[rippleIdx++ % ripples.length].set(x, z, clock.elapsedTime, strength);
 const riverSlope = (z) => 0.15 * Math.cos(z * 0.03) + 0.033 * Math.cos(z * 0.011 + 1.3) + 0.142 * Math.cos(z * 0.071 - 0.9); // d riverX / dz
+const decks = []; // begehbare Stege: { x0, x1, z0, z1, y }
+const onDeck = (x, z) => decks.find((d) => x > d.x0 && x < d.x1 && z > d.z0 && z < d.z1);
 const obstacles = []; // { x, z, r } – Pfosten der Wäscheleine
 const keys = new Set();
 const START = new THREE.Vector3(5, 0, 6);
@@ -1427,6 +1429,7 @@ async function createPlayer() {
 
 const WALK_SPEED = 1.5, RUN_SPEED = 4.2;
 function walkable(x, z, fromY) {
+    if (onDeck(x, z)) return true;
     const y = heightAt(x, z);
     if (y < WATER_LEVEL - 0.45) return false;            // höchstens knietief ins Wasser
     if (y - fromY > 0.12 || Math.hypot(x, z) > 420) return false; // keine Steilwände hoch
@@ -1460,7 +1463,7 @@ function updatePlayer(dt) {
             else if (walkable(nx, p.z, p.y)) p.x = nx;      // an Hindernissen entlanggleiten
             else if (walkable(p.x, nz, p.y)) p.z = nz;
         }
-        p.y = heightAt(p.x, p.z);
+        p.y = Math.max(heightAt(p.x, p.z), onDeck(p.x, p.z)?.y ?? -Infinity);
         pl.wake = (pl.wake ?? 0) - dt * (0.4 + pl.moving * (1 + pl.running));
         if (p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
         pl.model.rotation.y = pl.heading;
@@ -2276,7 +2279,7 @@ function createLots(wood) {
 async function createVillage() {
     const loader = new GLTFLoader();
     const glow = []; // Fenster, die nachts leuchten
-    const fallLeaves = [], porches = [], mixers = [], mills = []; // Herbstlaub auf dem Dach, Lampen an der Haustür
+    const fallLeaves = [], porches = [], mixers = [], mills = [], chimneys = []; // Herbstlaub auf dem Dach, Lampen an der Haustür
     await Promise.all(BUILDINGS.map(async (b) => {
         let gltf;
         try { gltf = await loader.loadAsync(`village/${b.file}.glb`); }
@@ -2351,6 +2354,15 @@ async function createVillage() {
         scene.add(holder);
         for (const [px, pz] of b.pads ?? [[0, 0]]) { const q = holder.localToWorld(new THREE.Vector3(px, 0, pz)); obstacles.push({ x: q.x, z: q.z, r: b.padR ?? b.r }); }
         if (car && b.car) { const q = car.getWorldPosition(new THREE.Vector3()); obstacles.push({ x: q.x, z: q.z, r: 1.5 }); }
+        if (b.smoke) { // der höchste Punkt des Hauses ist der Schornstein
+            const top = new THREE.Vector3(0, -Infinity, 0), v = new THREE.Vector3();
+            m.traverse((o) => {
+                if (!o.isMesh) return;
+                const pos = o.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i++) if (v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).y > top.y) top.copy(v);
+            });
+            chimneys.push(top);
+        }
         if (b.porch) porches.push(m.localToWorld(new THREE.Vector3(...b.porch)));
     }));
 
@@ -2466,10 +2478,55 @@ async function createVillage() {
             obstacles.push({ x: boat.position.x, z, r: 1.2 });
         } catch (err) { console.warn('Modell fehlt:', file, err); }
     }));
-    village = { glow, lamps, cats, fallLeaves, boats, mills };
+    // Steg am Pfahlhaus: vom Ufer hinaus bis neben das Boot, man kann darauf gehen
+    {
+        const z = 49.3, y = WATER_LEVEL + 0.42, x0 = riverX(z) + 0.5;
+        let x1 = x0;
+        while (heightAt(x1, z) < y - 0.05 && x1 < x0 + 14) x1 += 0.25;
+        x1 += 0.7;
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.07, 1.3), wood);
+        deck.position.set((x0 + x1) / 2, y, z); deck.castShadow = deck.receiveShadow = true;
+        const n = Math.max(2, Math.ceil((x1 - x0) / 1.6)), posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.07, 1.7, 6), wood, n * 2);
+        for (let i = 0; i < n; i++) for (const sd of [-1, 1]) posts.setMatrixAt(i * 2 + (sd > 0 ? 1 : 0), new THREE.Matrix4().makeTranslation(x0 + 0.15 + (x1 - x0 - 0.9) * i / (n - 1), y - 0.6, z + sd * 0.58));
+        posts.castShadow = true;
+        scene.add(deck, posts);
+        decks.push({ x0, x1, z0: z - 0.65, z1: z + 0.65, y: y + 0.035 });
+    }
+    // Rauch aus den Schornsteinen: Punkte steigen auf, treiben mit dem Wind ab und lösen sich auf
+    const smokeU = { uTime: { value: 0 }, uWind: { value: 0 }, uAmount: { value: 0.5 }, uScale: { value: 600 }, uColor: { value: new THREE.Color(0.7, 0.7, 0.72) } };
+    if (chimneys.length) {
+        const PER = 44, pos = new Float32Array(chimneys.length * PER * 3), seed = new Float32Array(chimneys.length * PER);
+        chimneys.forEach((c, k) => { for (let i = 0; i < PER; i++) { c.toArray(pos, (k * PER + i) * 3); seed[k * PER + i] = (i + rnd()) / PER + k * 0.37; } });
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('seed', new THREE.BufferAttribute(seed, 1));
+        const smoke = new THREE.Points(geo, new THREE.ShaderMaterial({
+            uniforms: smokeU, transparent: true, depthWrite: false,
+            vertexShader: `attribute float seed; uniform float uTime; uniform float uWind; uniform float uAmount; uniform float uScale; varying float vA;
+                void main() {
+                    float t = fract(uTime * 0.07 + seed);
+                    vec3 p = position + vec3((0.3 + uWind * 4.0) * t * t * 4.0 + sin(seed * 50.0 + t * 6.0) * 0.35 * t, t * (4.6 - uWind * 1.4), cos(seed * 31.0 + t * 5.0) * 0.35 * t);
+                    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+                    gl_Position = projectionMatrix * mv;
+                    gl_PointSize = (0.4 + 2.0 * t) * uScale / -mv.z;
+                    vA = smoothstep(0.0, 0.08, t) * (1.0 - t) * (1.0 - t) * uAmount;
+                }`,
+            fragmentShader: `uniform vec3 uColor; varying float vA;
+                void main() { gl_FragColor = vec4(uColor, smoothstep(0.5, 0.08, length(gl_PointCoord - 0.5)) * vA * 0.55); }`
+        }));
+        smoke.frustumCulled = false; smoke.layers.set(NO_MIRROR);
+        scene.add(smoke);
+    }
+    village = { glow, lamps, cats, fallLeaves, boats, mills, smokeU };
 }
+const night0 = (day) => 1 - smooth(0.15, 0.6, day);
 function updateVillage(day, dt) {
     if (!village) return;
+    // Rauch: in der Kälte und abends wird mehr geheizt
+    const su = village.smokeU;
+    su.uTime.value = clock.elapsedTime; su.uWind.value = state.wind;
+    su.uAmount.value = 0.4 + 0.45 * S.frost + 0.25 * night0(day);
+    su.uScale.value = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+    su.uColor.value.setScalar(lerp(0.1, 0.78, day));
     for (const m of village.mills) m.timeScale = 0.3 + state.wind * 1.6; // die Mühle dreht mit dem Wind
     for (const m of village.cats) m.update(dt);
     const night = 1 - smooth(0.15, 0.6, day); // Lichter gehen in der Dämmerung an
@@ -2961,7 +3018,7 @@ function soundBurst(type, freq, q, gain, dur, delay = 0, sweepTo = null) { // ku
     src.connect(f).connect(g).connect(sound.master); src.start(t, Math.random() * 2); src.stop(t + dur + 0.05);
 }
 function bell(delay, gain) { // Glockenschlag: unharmonische Teiltöne, die unterschiedlich schnell verklingen
-    if (playSample('bell', gain * 5, 0.14, 6, 1, delay)) return;
+    if (playSample('bell', gain * 2, 0.14, 7, 1, delay)) return;
     const { ctx } = sound, t = ctx.currentTime + delay;
     for (const [mul, amp, dur] of [[0.5, 0.5, 3.6], [1, 1, 2.8], [1.19, 0.6, 2.2], [1.5, 0.45, 1.8], [2, 0.35, 1.4], [2.51, 0.22, 1.0], [3.01, 0.12, 0.7]]) {
         const o = ctx.createOscillator(), g = ctx.createGain();
@@ -3051,7 +3108,7 @@ function updateSound(dt, day, rainAmt) {
         sound.hour = hour;
         if (!first && hour >= 6 && hour <= 18 && hour % 3 === 0 && now > (sound.rang ?? -99) + 9) { sound.rang = now; // alle drei Stunden, also etwa alle anderthalb Minuten
             const ch = BUILDINGS.find((b) => b.file === 'church'), vol = 0.16 * smooth(260, 15, Math.hypot(pp.x - ch.x, pp.z - ch.z));
-            for (let k = 0; k < 4 && vol > 0.004; k++) bell(k * 2.3, vol);
+            if (vol > 0.004) bell(0, vol); // ein einzelner Schlag
         }
     }
     // ab und zu bellt ein Dorfhund, ab und zu krächzen Krähen
@@ -3125,8 +3182,25 @@ function onWindowResize() {
     composer.setSize(window.innerWidth, window.innerHeight);
 }
 
+// Läuft die Szene zu langsam, wird in Stufen gröber gerendert (nie wieder feiner, damit es nicht pendelt)
+const quality = { frames: 0, t: 0, warm: 8, slow: 0 };
+function adaptQuality(raw) {
+    if (document.hidden || raw > 0.4) { quality.frames = quality.t = 0; return; } // Tab im Hintergrund zählt nicht
+    if ((quality.warm -= raw) > 0) return;
+    quality.frames++; quality.t += raw;
+    if (quality.t < 2) return;
+    const fps = quality.frames / quality.t, pr = renderer.getPixelRatio();
+    quality.frames = quality.t = 0;
+    quality.slow = fps < 38 ? quality.slow + 1 : 0;
+    if (quality.slow >= 2 && pr > 0.7) { // zwei Messfenster hintereinander zu langsam
+        quality.slow = 0;
+        renderer.setPixelRatio(Math.max(0.7, pr - 0.15)); composer.setPixelRatio(renderer.getPixelRatio());
+    }
+}
+
 function animate() {
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
+    adaptQuality(raw);
     const time = clock.elapsedTime;
 
     state.season = Math.min(state.season + dt * 0.3, params.targetSeason);
