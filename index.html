@@ -49,6 +49,21 @@
             #info { left: 10px; right: 10px; bottom: 8px; font-size: 9px; }
             #credits { left: 10px; bottom: 26px; }
         }
+        #intro {
+            position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px;
+            background: rgba(8, 12, 16, 0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: opacity 0.6s ease;
+        }
+        #intro.gone { opacity: 0; pointer-events: none; }
+        #intro .card { max-width: 560px; max-height: 100%; overflow: auto; color: #fff; padding: 30px 34px; border-radius: 18px;
+            background: rgba(20, 28, 36, 0.72); border: 1px solid rgba(255,255,255,0.22); box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+        #intro h1 { margin: 0 0 6px; font-size: 24px; font-weight: 600; letter-spacing: 0.5px; }
+        #intro p { margin: 0 0 16px; font-size: 14px; line-height: 1.55; color: rgba(255,255,255,0.82); }
+        #intro dl { margin: 0 0 20px; display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13px; line-height: 1.4; }
+        #intro dt { color: #fff; font-weight: 600; white-space: nowrap; }
+        #intro dd { margin: 0; color: rgba(255,255,255,0.8); }
+        #intro button { font: inherit; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #10161c; background: #fff; border: 0; border-radius: 12px; padding: 13px 26px; cursor: pointer; }
+        #intro button:disabled { background: rgba(255,255,255,0.35); cursor: default; }
+        #fps { position: absolute; right: 20px; bottom: 20px; z-index: 10; display: none; color: #fff; font: 12px ui-monospace, monospace; padding: 5px 9px; border-radius: 8px; background: rgba(20,28,36,0.6); }
         #hint {
             position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 10; display: none; cursor: pointer;
             padding: 9px 18px; border-radius: 12px; background: rgba(20, 28, 36, 0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -73,15 +88,31 @@
 
 <div id="loader"><span id="loadText">Landschaft wird aufgebaut …</span><div id="bar"><i></i></div></div>
 
+<div id="intro">
+    <div class="card">
+        <h1>Flashcat's Atmospheric Laundry</h1>
+        <p>Eine kleine Welt zum Herumlaufen: eine Wäscheleine am Fluss, ein Dorf am Feldweg, Mühle und Kornfeld, drüben am anderen Ufer ein Lagerfeuer und eine Schafherde. Jahreszeit, Wetter und Tageszeit lassen sich oben rechts umschalten.</p>
+        <dl>
+            <dt>W A S D</dt><dd>Laufen, mit Shift rennen. Am Handy: links der Steuerknüppel.</dd>
+            <dt>Maus</dt><dd>Umsehen (Klick fängt die Maus, Esc löst sie), Mausrad zoomt. Am Handy: rechts wischen, zwei Finger zoomen.</dd>
+            <dt>F</dt><dd>Anfassen, was in der Nähe ist: Handtuch abnehmen, ins Boot steigen, aufs Pferd steigen, Jeep fahren, Hund streicheln, hinsetzen. Der Hinweis unten zeigt, was gerade geht.</dd>
+            <dt>Q · E · T</dt><dd>Jahreszeit, Wetter, Tageszeit weiter. Z hält die Zeit an.</dd>
+            <dt>P · M</dt><dd>Foto speichern, Ton an und aus.</dd>
+        </dl>
+        <button id="introGo" disabled onclick="window.closeIntro()">Landschaft wird aufgebaut …</button>
+    </div>
+</div>
 <div id="ui">
     <button class="btn" onclick="window.toggleSeason()">Q · Jahreszeit <b id="seasonLabel">Sommer</b></button>
     <button class="btn" onclick="window.toggleWeather()">E · Wetter <b id="weatherLabel">Heiter</b></button>
     <button class="btn" onclick="window.toggleTime()">T · Tageszeit <b id="todLabel">Tag 13:00</b></button>
+    <button class="btn" onclick="document.getElementById('intro').classList.remove('gone')">Hilfe <b>?</b></button>
 </div>
 <div id="hello"></div>
 <div id="stick"><i></i></div>
 <div id="hint" onclick="window.interact()"></div>
-<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Pferd, Hund, Hinsetzen | P: Foto | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
+<div id="fps"></div>
+<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Pferd, Jeep, Hund, Hinsetzen | P: Foto | I: Bildrate | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
     <summary>Modelle &amp; Lizenzen</summary>
@@ -92,7 +123,7 @@
         „Old house“ von Tim0 · „Barn with one trim texture“ von korsun · „Проект пристройки“ von labarch ·
         „Low Poly Church“ von Yanez-Designs · „Windmill Stylized“ von a_l_e_x_a_n_d_e_r ·
         „Chicken – rigged“ von Maf'j Alvarez · „Lupe Goat“ von jackiebatteau · „Artia, the Walking Peasant“ von paolo.russo ·
-        „Wooden Boat“ von o0ozexo0o · „Boat“ von bumstrum · „Malpas Wooden Boat Wreck“ von artfletch.
+        „Willys Jeep Low Poly“ von InnocentBaraka · „Wooden Boat“ von o0ozexo0o · „Boat“ von bumstrum · „Malpas Wooden Boat Wreck“ von artfletch.
         Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Stockente von Jonathon Jongsma (CC BY-SA 3.0), Schafe von earthcalling (gemeinfrei), Glocke der Samariterkirche von Pete w. View und Rabenkrähe von Marie-Lan Taÿ Pamart (beide <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
         Außerdem: „Cat“ von J-Toastie (CC BY 3.0, Poly Pizza), Dorf- und Tiermodelle von Quaternius (CC0), Texturen von Poly Haven (CC0), Bäume mit ez-tree.
     </p>
@@ -120,6 +151,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import * as BufferGeometryUtils from 'three/addons/utils/BufferGeometryUtils.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 
 /**
  * ASSETS (CC0, polyhaven.com / three.js examples / ez-tree)
@@ -440,6 +472,14 @@ const BRIDGE = { z: -13, x0: -22, x1: -8, half: 0.8, rise: 1.5 };
 // Lagerplatz am anderen Ufer; ein Pfad führt von der Wäscheleine über die Brücke dorthin
 const CAMP = { x: -27, z: -18 };
 PATHS.push({ ax: 1.5, az: -3, bx: BRIDGE.x1 + 0.3, bz: BRIDGE.z }, { ax: BRIDGE.x0 - 0.3, az: BRIDGE.z, bx: CAMP.x + 2.2, bz: CAMP.z + 1.2 });
+{ const r0 = roadPoint(0, 0); PATHS.push({ ax: 2.5, az: 1.5, bx: r0.x, bz: r0.z }); } // von der Wäscheleine zum Anfang des Feldwegs
+// hinter dem Hof läuft der Feldweg als Fahrspur mit zwei Rinnen weiter und verliert sich talauswärts
+const TRACK = [];
+{
+    const a = ROAD.pts[ROAD.N - 1], e = ROAD.pts[ROAD.N], l = Math.hypot(e.x - a.x, e.z - a.z), dx = (e.x - a.x) / l, dz = (e.z - a.z) / l;
+    TRACK.push({ x: e.x, z: e.z }, { x: e.x + dx * 22 - dz * 3, z: e.z + dz * 22 + dx * 3 }, { x: e.x + dx * 46 - dz * 1, z: e.z + dz * 46 + dx * 1 });
+    for (let i = 0; i < 2; i++) for (const sd of [-0.75, 0.75]) PATHS.push({ ax: TRACK[i].x - dz * sd, az: TRACK[i].z + dx * sd, bx: TRACK[i + 1].x - dz * sd, bz: TRACK[i + 1].z + dx * sd });
+}
 const PATH_RAD = 104; // Umkreis um die Dorfmitte, in dem Weg und Pfade liegen
 const pathDist = (x, z) => {
     let best = Infinity;
@@ -451,6 +491,9 @@ const pathDist = (x, z) => {
 };
 const HEDGE = { h: 1.7, foot: 0.26, half: 0.36 }; // Höhe, Beginn des Laubs über dem Boden, halbe Dicke
 const hedgeUniforms = { uTime: { value: 0 }, uTurn: { value: 0 }, uWinter: { value: 0 } };
+// Häuser der zweiten Reihe bekommen einen runden Garten mit Zaun (yard: Radius)
+const YARDS = BUILDINGS.filter((b) => b.clear && b.file !== 'windmill');
+for (const b of YARDS) b.yard = b.r + 2.8;
 const builtUp = (x, z) => inLot(x, z) || inField(x, z, 1) || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 16 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r + 1) ** 2);
 
 /**
@@ -482,7 +525,7 @@ const ripples = Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -100, 0)
 let rippleIdx = 0;
 const addRipple = (x, z, strength = 1) => ripples[rippleIdx++ % ripples.length].set(x, z, clock.elapsedTime, strength);
 const riverSlope = (z) => 0.15 * Math.cos(z * 0.03) + 0.033 * Math.cos(z * 0.011 + 1.3) + 0.142 * Math.cos(z * 0.071 - 0.9); // d riverX / dz
-let photo = false;
+let photo = false, frameNo = 0;
 const seats = []; // Sitzplätze: { x, z, face (Blickrichtung), h (Sitzhöhe) }
 let nightNow = 0; // 0 Tag … 1 Nacht, für das Dorfleben
 const decks = []; // begehbare Stege und Brücken: { x0, x1, z0, z1, y } oder mit yAt(x) für einen Bogen; low: Boote kommen nicht darunter durch
@@ -529,6 +572,7 @@ async function init() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = false; // Schatten werden in animate() nur jedes zweite Bild neu gerechnet
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     document.body.appendChild(renderer.domElement);
@@ -567,6 +611,20 @@ async function init() {
     composer.addPass(godrays);
     bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.3, 0.6, 1.0);
     composer.addPass(bloom);
+    // Bildlook: etwas sattere Farben, die Ecken leicht abgedunkelt
+    composer.addPass(new ShaderPass({
+        uniforms: { tDiffuse: { value: null } },
+        vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+            void main() {
+                vec3 c = texture2D(tDiffuse, vUv).rgb;
+                c = mix(vec3(dot(c, vec3(0.2126, 0.7152, 0.0722))), c, 1.12);
+                vec2 q = vUv - 0.5;
+                gl_FragColor = vec4(max(c, 0.0) * (1.0 - dot(q, q) * 0.5), 1.0);
+            }`
+    }));
+    // Kantenglättung: Zäune, Halme und Dachkanten flimmern weniger
+    composer.addPass(new SMAAPass(window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio()));
     composer.addPass(new OutputPass());
 
     hemi = new THREE.HemisphereLight(0xb5d4ff, 0x55683a, 1.1);
@@ -666,6 +724,7 @@ async function init() {
         if (e.code === 'KeyE') window.toggleWeather();
         if (e.code === 'KeyT') window.toggleTime();
         if (e.code === 'KeyF') interact();
+        if (e.code === 'KeyI') { const el = document.getElementById('fps'); el.style.display = el.style.display === 'block' ? 'none' : 'block'; } // Bildrate ein- und ausblenden
         if (e.code === 'KeyP') photo = true; // Foto: das nächste fertige Bild wird ohne Bedienelemente gespeichert
         if (e.code === 'KeyM' && sound) { sound.muted = !sound.muted; sound.master.gain.setTargetAtTime(sound.muted ? 0 : 0.9, sound.ctx.currentTime, 0.1); }
         if (e.code === 'KeyZ') { params.todRun = !params.todRun; state.todText = ''; }
@@ -682,6 +741,10 @@ async function init() {
     createWheat();
     document.querySelector('#bar i').style.width = '100%';
     document.getElementById('loader').classList.add('done');
+    // beide Beleuchtungen (Tag ohne, Nacht mit Punktlichtern) vorab übersetzen, damit es in der Dämmerung nicht ruckt
+    for (const on of [true, false]) { for (const l of village.lightPool) l.visible = on; renderer.compile(scene, camera); }
+    const go = document.getElementById('introGo');
+    go.disabled = false; go.textContent = "Los geht's";
 }
 
 // Regenbogen: erscheint der Sonne gegenüber, wenn es nach dem Regen aufklart und der Boden noch nass ist
@@ -1045,6 +1108,14 @@ function createWater() {
     mat.depthWrite = false; // Fische werden danach durch die Oberfläche hindurch gezeichnet
     mat.side = THREE.DoubleSide;
     water.frustumCulled = false;
+    // Die Spiegelung zeichnet die halbe Szene ein zweites Mal – der teuerste Einzelposten. Am Fluss genügt jedes zweite Bild,
+    // weit weg vom Wasser (im Dorf) jedes achte.
+    const mirror = water.onBeforeRender;
+    let mirrorTick = 0;
+    water.onBeforeRender = function (...args) {
+        const cp = camera.position, far = Math.abs(cp.x - riverX(cp.z)) > 45;
+        if (mirrorTick++ % (far ? 8 : 2) === 0) mirror.apply(this, args);
+    };
     water.renderOrder = 1;
     water.rotation.x = -Math.PI / 2;
     water.position.y = WATER_LEVEL;
@@ -1178,7 +1249,9 @@ function towelAt(reach = 0.35) { // das Handtuch, vor dem die Figur steht
     return towels.find((t) => !t.taken && Math.abs(q.x - t.x) < t.w / 2 + reach && Math.abs(q.z) < 1.3) ?? null;
 }
 function updateTowels(time) {
-    const gust = 0.35 + state.wind * 0.9;
+    // nass hängen die Tücher schwer und dunkel, bei Frost sind sie steif gefroren und bereift
+    const frost = S.frost ?? 0, wet = state.wet * (1 - frost), gust = (0.35 + state.wind * 0.9) * Math.max(0.12, 1 - 0.55 * wet - 0.8 * frost);
+    for (const t of towels) { t.mesh.material.color.setScalar(1 - 0.34 * wet); t.mesh.material.emissive.setRGB(0.2, 0.23, 0.27).multiplyScalar(frost * 0.5); t.mesh.material.roughness = 0.95 - 0.35 * wet; }
     const q = player ? lineLocal(player.model.position) : null;
     const R = 0.3, lineY = heightAt(0, 0), headY = player ? player.model.position.y - lineY + 1.82 : 0; // Figur als Säule mit Radius R
     for (const t of towels) {
@@ -1235,7 +1308,7 @@ function groundTexture() {
         else if (roadDist(x, z) < 2.0 || inField(x, z, 0.3)) grow = 0;
         else if (x > BRIDGE.x0 - 0.5 && x < BRIDGE.x1 + 0.5 && Math.abs(z - BRIDGE.z) < BRIDGE.half + 0.3) grow = 0; // unter der Brücke                                           // Feldweg
         else if (BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r - 0.4) ** 2)) grow = 0;
-        else if (inLot(x, z, 0.1)) grow = 0.26;                                            // gemähter Rasen in den Gärten
+        else if (inLot(x, z, 0.1) || YARDS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < b.yard ** 2)) grow = 0.26;                                            // gemähter Rasen in den Gärten
         else if (Math.hypot(x - PEN.x, z - PEN.z) < PEN.r) grow = 0.3;                     // abgeweidet
         if (grow > 0 && (x - ROAD.cx) ** 2 + (z - ROAD.cz) ** 2 < PATH_RAD ** 2) grow *= smooth(0.5, 1.4, pathDist(x, z)); // ausgetretene Pfade
         if (grow > 0) grow *= smooth(1.3, 2.6, Math.hypot(x - CAMP.x, z - CAMP.z)); // festgetretene Erde ums Lagerfeuer
@@ -1379,6 +1452,7 @@ async function createTrees() {
         const z = (rand() - 0.5) * 230, x = riverX(z) + (rand() < 0.5 ? -1 : 1) * (6.2 + rand() * rand() * 5) * riverW(z);
         if (heightAt(x, z) < WATER_LEVEL + 0.3) return null;
         if (Math.hypot(x - LODGE.x, z - LODGE.z) < 3 || Math.hypot(x, z) < 9) return null; // Burg + Wäscheleine frei lassen
+        if (pathDist(x, z) < 3.6 || (Math.abs(z - BRIDGE.z) < 4.5 && x > BRIDGE.x0 - 4 && x < BRIDGE.x1 + 4) || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 49) return null; // Pfade, Brücke, Lagerplatz
         return new THREE.Vector3(x, heightAt(x, z) - 0.12, z);
     };
     const spots = treeSpots;
@@ -1387,7 +1461,7 @@ async function createTrees() {
         for (let tries = 0; tries < 60; tries++) {
             const a = rand() * Math.PI * 2, r = Math.sqrt(lerp(rMin * rMin, rMax * rMax, rand()));
             const x = Math.cos(a) * r, z = Math.sin(a) * r;
-            if (Math.abs(x - riverX(z)) < 9 * riverW(z) + 2) continue;
+            if (Math.abs(x - riverX(z)) < 9 * riverW(z) + 2 || pathDist(x, z) < 3) continue;
             if (roadDist(x, z) < ROAD.half + 1 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.clear ?? b.r + 1) ** 2) || inField(x, z, 4) || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 49) continue;
             const y = heightAt(x, z);
             if (y > maxH || tooClose(x, z, 6)) continue;
@@ -1661,15 +1735,85 @@ function applySit(pl, astride = false) { // astride: im Sattel, die Beine hänge
     for (const [side, sp] of [['Left', 1], ['Right', -1]]) {
         const thigh = b[side + 'UpLeg'], shin = b[side + 'Leg'], foot = b[side + 'Foot'];
         if (!thigh || !shin || !foot) return;
-        const lx = -ch * sp, lz = sh * sp; // zur jeweiligen Körperseite
+        const lx = ch * sp, lz = -sh * sp; // zur jeweiligen Körperseite
         if (astride) {
             aimBone(thigh, shin, sitV[2].set(sh * 0.45 + lx * 0.6, -0.62, ch * 0.45 + lz * 0.6).normalize());
             aimBone(shin, foot, sitV[2].set(-sh * 0.22 + lx * 0.08, -1, -ch * 0.22 + lz * 0.08).normalize());
         } else {
             aimBone(thigh, shin, sitV[2].set(sh + lx * 0.12, 0.06, ch + lz * 0.12).normalize());
-            aimBone(shin, foot, sitV[2].set(sh * 0.12, -1, ch * 0.12).normalize());
+            const reach = pl.jeep ? 0.75 : 0.12; // im Jeep sind die Beine zu den Pedalen gestreckt
+            aimBone(shin, foot, sitV[2].set(sh * reach, -1, ch * reach).normalize());
         }
     }
+}
+// JEEP: mit F einsteigen, die Lauftasten geben Gas und lenken, Shift fährt schneller; mit F wieder aussteigen
+const JEEP = { t: 0.37, off: 3.7, flip: Math.PI, seat: [0.42, 0.78, -0.08], wheelR: 0.385, grip: [0.17, 0.4, 0.44] }; // grip: Hände am Lenkrad relativ zur Hüfte (halbe Breite, hoch, vor) // Parkplatz am Weg; Fahrersitz: seitlich, hoch, nach vorn
+let jeep = null;
+function placeJeep(k) { // steht auf dem Gelände und neigt sich mit ihm
+    const j = jeep, sh = Math.sin(j.heading), ch = Math.cos(j.heading), h = (a, b) => heightAt(j.x + sh * a + ch * b, j.z + ch * a - sh * b);
+    const front = h(1.2, 0), back = h(-1.2, 0), left = h(0, -0.8), right = h(0, 0.8), y = (front + back + left + right) / 4;
+    j.y = y;
+    j.g.position.set(j.x, y, j.z);
+    j.g.rotation.y = j.heading;
+    j.g.rotation.x += (Math.atan2(back - front, 2.4) - j.g.rotation.x) * k;
+    j.g.rotation.z += (Math.atan2(right - left, 1.6) - j.g.rotation.z) * k;
+    j.ob.x = j.x; j.ob.z = j.z;
+}
+function driveJeep(pl, fwd, side, run, dt) {
+    const j = jeep, p = pl.model.position, top = run ? 11 : 6.5;
+    j.speed += (Math.max(-0.45, Math.min(1, fwd)) * top - j.speed) * (1 - Math.exp(-dt * (fwd ? 1.1 : 1.6))); // Gas, Rückwärtsgang, Ausrollen
+    j.heading -= side * dt * 1.5 * Math.max(-1, Math.min(1, j.speed / 3.5)); // gelenkt wird nur in Fahrt, rückwärts andersherum
+    const sh = Math.sin(j.heading), ch = Math.cos(j.heading), dir = Math.sign(j.speed) || 1;
+    const clear = (x, z) => !onDeck(x, z) && walkable(x, z, Infinity) && heightAt(x, z) > WATER_LEVEL - 0.25 && Math.abs(heightAt(x, z) - j.y) < 0.9;
+    const nx = j.x + sh * j.speed * dt, nz = j.z + ch * j.speed * dt;
+    if (clear(nx, nz) && clear(nx + sh * dir * 1.6, nz + ch * dir * 1.6)) { j.x = nx; j.z = nz; } else j.speed *= -0.2; // Hindernis: kurz zurückfedern
+    placeJeep(1 - Math.exp(-dt * 8));
+    for (const w of j.wheels) w.rotation.x += j.speed * dt / JEEP.wheelR; // Räder rollen mit
+    // die Figur sitzt am Steuer
+    pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95;
+    pl.heading = j.heading;
+    const [sl, su, sf] = JEEP.seat;
+    p.set(j.x + ch * sl + sh * sf, j.y + su + 0.1 - pl.hipH, j.z - sh * sl + ch * sf);
+    if (sound) { // Motor: tiefes Brummen, das mit dem Tempo höher wird
+        if (!sound.engine) {
+            const { ctx } = sound, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+            o.type = 'sawtooth'; f.type = 'lowpass'; f.frequency.value = 220; g.gain.value = 0;
+            o.connect(f).connect(g).connect(sound.master); o.start();
+            sound.engine = { o, f, g };
+        }
+        const v = Math.abs(j.speed), now = sound.ctx.currentTime;
+        sound.engine.o.frequency.setTargetAtTime(42 + v * 9, now, 0.1); sound.engine.f.frequency.setTargetAtTime(180 + v * 45, now, 0.1); sound.engine.g.gain.setTargetAtTime(0.05 + v * 0.006, now, 0.15);
+    }
+}
+const nearJeep = () => { const p = player?.model.position; return jeep && p && !player.boat && !player.horse && !player.sitting && (jeep.x - p.x) ** 2 + (jeep.z - p.z) ** 2 < 3.1 ** 2; };
+function leaveJeep() {
+    const pl = player, j = jeep;
+    pl.jeep = false; j.speed = 0; j.ob.r = 1.7;
+    if (sound?.engine) sound.engine.g.gain.setTargetAtTime(0, sound.ctx.currentTime, 0.2);
+    for (const a of [Math.PI / 2, -Math.PI / 2, Math.PI, 0]) { const x = j.x + Math.sin(j.heading + a) * 2.3, z = j.z + Math.cos(j.heading + a) * 2.3; if (walkable(x, z, Infinity)) { pl.model.position.x = x; pl.model.position.z = z; return; } }
+}
+// Hände ans Lenkrad: Oberarm und Unterarm werden so gestellt, dass die Hand den Griffpunkt erreicht (Ellbogen hängt nach unten außen)
+const ikS = new THREE.Vector3(), ikE = new THREE.Vector3(), ikH = new THREE.Vector3(), ikT = new THREE.Vector3(), ikD = new THREE.Vector3(), ikP = new THREE.Vector3();
+function reachHand(pl, side, target) {
+    const b = pl.bones, upper = b[side + 'Arm'], fore = b[side + 'ForeArm'], hand = b[side + 'Hand'];
+    if (!upper || !fore || !hand) return;
+    upper.updateWorldMatrix(true, true);
+    ikS.setFromMatrixPosition(upper.matrixWorld); ikE.setFromMatrixPosition(fore.matrixWorld); ikH.setFromMatrixPosition(hand.matrixWorld);
+    const la = ikS.distanceTo(ikE), lb = ikE.distanceTo(ikH), dist = Math.min(ikD.copy(target).sub(ikS).length(), (la + lb) * 0.999);
+    ikD.normalize();
+    const cosA = THREE.MathUtils.clamp((la * la + dist * dist - lb * lb) / (2 * la * dist), -1, 1);
+    ikP.set(Math.cos(pl.heading) * (side === 'Left' ? 0.5 : -0.5), -1, -Math.sin(pl.heading) * (side === 'Left' ? 0.5 : -0.5)); // Richtung des Ellbogens
+    ikP.addScaledVector(ikD, -ikP.dot(ikD)).normalize();
+    ikT.copy(ikS).addScaledVector(ikD, la * cosA).addScaledVector(ikP, la * Math.sqrt(1 - cosA * cosA)); // Ellbogen
+    aimBone(upper, fore, ikE.copy(ikT).sub(ikS).normalize());
+    fore.updateWorldMatrix(true, true);
+    aimBone(fore, hand, ikH.copy(target).sub(ikT.setFromMatrixPosition(fore.matrixWorld)).normalize());
+}
+const gripV = new THREE.Vector3();
+function holdWheel(pl) {
+    const p = pl.model.position, sh = Math.sin(pl.heading), ch = Math.cos(pl.heading), [gw, gu, gf] = JEEP.grip, hipY = p.y + (pl.hipH ?? 0.95);
+    const steer = (pl.input?.side ?? 0) * 0.06; // beim Lenken wandern die Hände etwas mit
+    for (const [side, sg] of [['Left', 1], ['Right', -1]]) reachHand(pl, side, gripV.set(p.x + ch * sg * gw + sh * gf, hipY + gu + sg * steer, p.z - sh * sg * gw + ch * gf));
 }
 // REITEN: mit F neben dem Pferd aufsteigen; es folgt dann den Lauftasten (Shift = Galopp), mit F steigt man wieder ab
 const nearHorse = () => { const p = player?.model.position; return p && !player.boat && !player.sitting ? critters.find((c) => /horse/.test(c.def.file ?? '') && (c.x - p.x) ** 2 + (c.z - p.z) ** 2 < 2.6 ** 2) ?? null : null; };
@@ -1684,15 +1828,16 @@ function rideHorse(c, dt) {
         turn = Math.atan2(Math.sin(turn), Math.cos(turn));
         c.heading += turn * (1 - Math.exp(-dt * 3.5));
         speed = (inp.run ? 6.5 : 1.7) * (Math.abs(turn) < 1.2 ? 1 : 0.35); // erst wenden, dann Tempo
-        const nx = c.x + Math.sin(c.heading) * speed * dt, nz = c.z + Math.cos(c.heading) * speed * dt, y = heightAt(c.x, c.z);
+        const nx = c.x + Math.sin(c.heading) * speed * dt, nz = c.z + Math.cos(c.heading) * speed * dt, y = c.gy ?? heightAt(c.x, c.z);
         if (walkable(nx, nz, y)) { c.x = nx; c.z = nz; } else if (walkable(nx, c.z, y)) c.x = nx; else if (walkable(c.x, nz, y)) c.z = nz; else speed = 0;
     }
     c.state = speed > 3 ? 'flee' : speed > 0 ? 'walk' : 'idle';
     c.timer = 3;
+    { const g = heightAt(c.x, c.z), dk = deckY(c.x, c.z); c.gy = dk > g && (c.gy ?? g) > dk - 0.6 ? dk : g; } // auch das Pferd geht über Brücke und Steg
     // die Figur sitzt auf dem Pferderücken
     pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95;
     pl.heading = c.heading;
-    p.set(c.x - Math.sin(c.heading) * 0.12, heightAt(c.x, c.z) + c.def.h * 0.72 - pl.hipH + Math.sin(c.stride * 4.5) * 0.02 * Math.min(1, speed), c.z - Math.cos(c.heading) * 0.12);
+    p.set(c.x - Math.sin(c.heading) * 0.12, c.gy + c.def.h * 0.72 - pl.hipH + Math.sin(c.stride * 4.5) * 0.02 * Math.min(1, speed), c.z - Math.cos(c.heading) * 0.12);
     if (speed > 0 && sound && (c.clop = (c.clop ?? 0) - dt * (speed > 3 ? 5 : 2.2)) < 0) { c.clop = 1; soundBurst('bandpass', 620 + Math.random() * 200, 2.5, 0.07, 0.06); soundBurst('bandpass', 560 + Math.random() * 200, 2.5, 0.05, 0.06, 0.11); } // Hufschlag
     c.stride += speed * dt;
 }
@@ -1720,8 +1865,9 @@ function interact() {
         return;
     }
     if (pl.sitting) return standUp();
+    if (pl.jeep) return leaveJeep();
     if (pl.horse) { // absteigen, links neben das Pferd
-        const c = pl.horse; pl.horse = null; c.ridden = false; c.state = 'idle'; c.timer = 6;
+        const c = pl.horse; pl.horse = null; c.ridden = false; c.state = 'idle'; c.timer = 6; c.gy = undefined;
         for (const a of [Math.PI / 2, -Math.PI / 2, Math.PI, 0]) { const x = c.x + Math.sin(c.heading + a) * 1.3, z = c.z + Math.cos(c.heading + a) * 1.3; if (walkable(x, z, Infinity)) { pl.model.position.x = x; pl.model.position.z = z; break; } }
         return;
     }
@@ -1738,22 +1884,26 @@ function interact() {
     if (t) return carryTowel(t);
     const b = nearBoat();
     if (b && S.ice < 0.5) { pl.boat = b; b.userData.speed = 0; return; }
+    if (nearJeep()) { pl.jeep = true; jeep.ob.r = 0; return; }
     const horse = nearHorse();
     if (horse) { pl.horse = horse; horse.ridden = true; return; }
     const seat = nearSeat();
     if (seat) { pl.sitting = seat; pl.heading = seat.face; }
 }
 window.interact = interact;
+window.closeIntro = () => { document.getElementById('intro').classList.add('gone'); startSound(); };
 function updateHint() {
     const el = document.getElementById('hint'), key = touch.used ? 'Tippen' : 'F';
     let text = '';
     if (player?.boat) text = `${key}: Aussteigen (am Ufer)`;
     else if (player?.sitting) text = `${key}: Aufstehen`;
     else if (player?.horse) text = `${key}: Absteigen`;
+    else if (player?.jeep) text = `${key}: Aussteigen`;
     else if (nearDog()) text = `${key}: Hund streicheln`;
     else if (player?.towel && nearLine()) text = `${key}: Handtuch aufhängen`;
     else if (!player?.towel && towelAt()) text = `${key}: Handtuch abnehmen`;
     else if (nearBoat()) text = S.ice < 0.5 ? `${key}: Ins Boot steigen` : 'Der Fluss ist zugefroren';
+    else if (nearJeep()) text = `${key}: In den Jeep steigen`;
     else if (nearHorse()) text = `${key}: Aufs Pferd steigen`;
     else if (nearSeat()) text = `${key}: Hinsetzen`;
     if (text !== el.textContent) { el.textContent = text; el.style.display = text ? 'block' : 'none'; }
@@ -1769,12 +1919,13 @@ function updatePlayer(dt) {
 
     if (player) {
         const pl = player, p = pl.model.position;
-        pl.moving += ((wantsMove && !pl.boat && !pl.sitting && !pl.horse ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
+        pl.moving += ((wantsMove && !pl.boat && !pl.sitting && !pl.horse && !pl.jeep ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
         pl.running += ((wantsRun ? 1 : 0) - pl.running) * (1 - Math.exp(-dt * 6));
         if (pl.sitting && wantsMove) standUp(); // loslaufen heißt aufstehen
         if (pl.boat) rowBoat(pl, fwd, side, dt);
         else if (pl.sitting) { p.x = pl.sitting.x; p.z = pl.sitting.z; }
         else if (pl.horse) { /* Ort und Richtung setzt rideHorse */ }
+        else if (pl.jeep) driveJeep(pl, fwd, side, wantsRun, dt);
         else if (wantsMove) {
             // Blickrichtung der Kamera auf dem Boden: vorwärts (-sin, -cos), rechts (cos, -sin)
             const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
@@ -1785,13 +1936,19 @@ function updatePlayer(dt) {
             pl.heading += turn * (1 - Math.exp(-dt * 12));
             const step = lerp(WALK_SPEED, RUN_SPEED, pl.running) * pl.moving * dt;
             const nx = p.x + dx * step, nz = p.z + dz * step;
-            if (walkable(nx, nz, p.y)) { p.x = nx; p.z = nz; }
-            else if (walkable(nx, p.z, p.y)) p.x = nx;      // an Hindernissen entlanggleiten
-            else if (walkable(p.x, nz, p.y)) p.z = nz;
+            // Leute und größere Tiere stehen im Weg; weg von ihnen kommt man immer
+            const bump = (x, z) => critters.some((c) => {
+                const r = !c.model.visible || c.ridden || c.hen || c.def.hare ? 0 : c.human ? 0.42 : (c.def.h ?? 0.7) > 1.2 ? 0.75 : 0.45, d2 = (c.x - x) ** 2 + (c.z - z) ** 2;
+                return d2 < r * r && d2 < (c.x - p.x) ** 2 + (c.z - p.z) ** 2;
+            });
+            const free = (x, z) => walkable(x, z, p.y) && !bump(x, z);
+            if (free(nx, nz)) { p.x = nx; p.z = nz; }
+            else if (free(nx, p.z)) p.x = nx;      // an Hindernissen entlanggleiten
+            else if (free(p.x, nz)) p.z = nz;
         }
-        if (!pl.boat && !pl.horse) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
+        if (!pl.boat && !pl.horse && !pl.jeep) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
         pl.wake = (pl.wake ?? 0) - dt * (0.4 + pl.moving * (1 + pl.running));
-        if (!pl.boat && !pl.horse && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
+        if (!pl.boat && !pl.horse && !pl.jeep && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
         pl.model.rotation.y = pl.heading;
         pl.idle.setEffectiveWeight(1 - pl.moving);
         pl.walk.setEffectiveWeight(pl.moving * (1 - pl.running));
@@ -1800,6 +1957,7 @@ function updatePlayer(dt) {
         // sitzend rutscht die Hüfte auf Sitzhöhe, die Beine werden angewinkelt
         pl.sit = (pl.sit ?? 0) + ((pl.sitting ? 1 : 0) - (pl.sit ?? 0)) * (1 - Math.exp(-dt * 7));
         if (pl.horse) applySit(pl, true);
+        if (pl.jeep) { applySit(pl); holdWheel(pl); }
         if (pl.sitting) { pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95; p.y += (pl.sitting.h + 0.1 - pl.hipH) * pl.sit; applySit(pl); }
 
         pl.blink -= dt;
@@ -2646,7 +2804,49 @@ function createLots(wood) {
     const apple = batch(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshStandardMaterial({ roughness: 0.45 }), 80);
     const WHITE = 0xe9e3d2, SOIL = 0x3a2a1c, STONE = 0x9a958a;
     appleMesh = apple.mesh;
-    const blooms = [0xf2d33a, 0xe04a3a, 0xf4f1ea, 0xb06ad8, 0xf29ac0, 0x5a8fe8];
+    const blooms = [0xf2d33a, 0xe04a3a, 0xf4f1ea, 0xb06ad8, 0xf29ac0, 0x5a8fe8, 0xf08a2a, 0xd9306a];
+    // Gartenpflanzen: Kränze aus Blättern statt Kugeln. n Blätter, Länge 1, Breite, Aufstellwinkel, Wölbung
+    const ring = (n, wid, tilt, cup, turn = 0) => {
+        const parts = [];
+        for (let i = 0; i < n; i++) {
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, -wid / 2, cup * 0.35, 0.55, wid / 2, cup * 0.35, 0.55, 0, cup, 1], 3));
+            g.setIndex([0, 2, 1, 1, 2, 3]);
+            parts.push(g.rotateX(-tilt).rotateY(i / n * Math.PI * 2 + turn));
+        }
+        const geo = BufferGeometryUtils.mergeGeometries(parts), pos = geo.attributes.position, nrm = new Float32Array(pos.count * 3), v = new THREE.Vector3();
+        for (let i = 0; i < pos.count; i++) v.set(pos.getX(i) * 0.5, 0.8, pos.getZ(i) * 0.5).normalize().toArray(nrm, i * 3); // weiche Beleuchtung: Normalen zeigen nach oben und etwas nach außen
+        geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+        return geo;
+    };
+    const double = (a, b, k) => BufferGeometryUtils.mergeGeometries([a, b.clone().scale(k, k, k).translate(0, 0.04, 0)]);
+    // im Winter ziehen die Beete ein, im Herbst welken sie – gleiche Steuerung wie die Wiesenblumen
+    const seasonal = (mat) => { mat.onBeforeCompile = (sh) => { sh.uniforms.uBloom = flowers.uniforms.uBloom; sh.vertexShader = 'uniform float uBloom;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed *= mix(0.25, 1.0, uBloom);'); }; mat.customProgramCacheKey = () => 'gardenplant'; return mat; };
+    const leafMat = () => seasonal(new THREE.MeshStandardMaterial({ roughness: 0.75, side: THREE.DoubleSide }));
+    const heads = [ring(11, 0.34, 0.28, 0.06), ring(6, 0.8, 1.12, 0.16), double(ring(9, 0.5, 0.5, 0.1), ring(7, 0.55, 1.0, 0.12, 0.4), 0.62)].map((g) => batch(g, leafMat(), 1100)); // Margerite, Tulpe, Dahlie
+    const centre = batch(new THREE.SphereGeometry(1, 8, 6), seasonal(new THREE.MeshStandardMaterial({ roughness: 0.8 })), 2400);
+    const stalk = batch(new THREE.CylinderGeometry(1, 1, 1, 5), seasonal(new THREE.MeshStandardMaterial({ roughness: 0.8 })), 2400);
+    const leaves = batch(ring(3, 0.42, 0.75, 0.12), leafMat(), 2400);
+    const rosette = batch(double(ring(7, 0.95, 0.55, 0.3), ring(6, 0.9, 1.05, 0.25, 0.5), 0.72), leafMat(), 260), tuft = batch(ring(8, 0.2, 1.15, 0.12), leafMat(), 700);
+    for (const b of [...heads, centre, stalk, leaves, rosette, tuft]) b.mesh.castShadow = false;
+    // eine Blume: Stiel, Blattpaar, Blüte; sort wählt die Form, color die Farbe
+    const flower = (x, z, sort, color) => {
+        const hh = 0.2 + rnd() * 0.26, r = (sort === 1 ? 0.07 : 0.095) + rnd() * 0.035, ry = rnd() * 6.28;
+        stalk(x, hh / 2, z, 0.007, hh, 0.007, 0, 0, 0x4f8a34);
+        leaves(x, hh * (0.25 + rnd() * 0.2), z, 0.1, 0.1, 0.1, ry, 0, 0x4a8a30);
+        heads[sort](x, hh, z, r, r, r, ry, (rnd() - 0.5) * 0.4, color);
+        if (sort !== 1) centre(x, hh + r * 0.05, z, r * 0.27, r * 0.15, r * 0.27, 0, 0, sort ? 0x7a4a1c : 0xe8b820);
+    };
+    // ein Beet voller Blumen: in kleinen Gruppen gleicher Sorte und Farbe, wie gepflanzt
+    const flowerBed = (cx, cz, len, depth, ry) => {
+        const c = Math.cos(ry), sn = Math.sin(ry);
+        paint(cx, 0.04, cz, len, 0.1, depth, ry, 0, SOIL);
+        for (let u = -len / 2 + 0.12, sort = 0, color = 0, left = 0; u < len / 2 - 0.1; u += 0.075 + rnd() * 0.055) {
+            if (left-- <= 0) { left = 2 + Math.floor(rnd() * 4); sort = Math.floor(rnd() * 3); color = blooms[Math.floor(rnd() * blooms.length)]; }
+            const w = (rnd() - 0.5) * (depth - 0.14);
+            flower(cx + c * u + sn * w, cz - sn * u + c * w, sort, color);
+        }
+    };
 
     for (const l of LOTS) {
         const P = (lx, lz) => lotW(l, lx, lz), face = l.b.face;
@@ -2681,12 +2881,7 @@ function createLots(wood) {
         // Blumenrabatten innen am vorderen Zaun
         for (const sx of [-1, 1]) {
             const m = P(sx * (G + W) / 2, F - 0.55);
-            paint(m.x, 0.04, m.z, W - G - 0.9, 0.1, 0.55, face, 0, SOIL);
-            for (let x = G + 0.6; x < W - 0.5; x += 0.2 + rnd() * 0.12) {
-                const q = P(sx * x, F - 0.55 + (rnd() - 0.5) * 0.3), hh = 0.2 + rnd() * 0.22;
-                blob(q.x, hh * 0.5, q.z, 0.07, hh * 0.6, 0.07, 0, 0, 0x2f6a22);
-                blob(q.x, hh + 0.05, q.z, 0.07 + rnd() * 0.04, 0.06, 0.07 + rnd() * 0.04, rnd() * 3, 0, blooms[Math.floor(rnd() * blooms.length)]);
-            }
+            flowerBed(m.x, m.z, W - G - 0.9, 0.55, face);
         }
         // Bank neben der Tür
         { const bx = l.i % 2 ? -2.6 : 2.6, s = P(bx, 4.15), bk = P(bx, 3.93);
@@ -2700,7 +2895,12 @@ function createLots(wood) {
             paint(m.x, 0.05, m.z, 1.25, 0.14, 5.2, face, 0, SOIL);
             for (let z = -9.7; z < -5.1; z += k ? 0.24 : 0.5) for (const ox of k ? [-0.35, 0, 0.35] : [-0.28, 0.28]) {
                 const q = P(bxc + ox, z + (rnd() - 0.5) * 0.06);
-                k ? blob(q.x, 0.24, q.z, 0.05, 0.16, 0.05, rnd() * 3, 0, 0x3f8a26) : blob(q.x, 0.2, q.z, 0.17, 0.13, 0.17, rnd() * 3, 0, col.setHSL(0.27 + rnd() * 0.05, 0.45, 0.3 + rnd() * 0.1).getHex());
+                if (k) tuft(q.x, 0.1, q.z, 0.2, 0.2 + rnd() * 0.08, 0.2, rnd() * 6, 0, col.setHSL(0.29 + rnd() * 0.04, 0.6, 0.3 + rnd() * 0.08).getHex()); // Möhrengrün
+                else { // Kohlkopf: äußere Blätter offen, innen der feste Kopf
+                    const sz = 0.2 + rnd() * 0.05, hue = 0.27 + rnd() * 0.06;
+                    rosette(q.x, 0.11, q.z, sz, sz, sz, rnd() * 6, 0, col.setHSL(hue, 0.42, 0.3 + rnd() * 0.08).getHex());
+                    blob(q.x, 0.2, q.z, sz * 0.5, sz * 0.46, sz * 0.5, rnd() * 3, 0, col.setHSL(hue + 0.02, 0.4, 0.5).getHex());
+                }
             }
         }
         // Äpfel im Baum (der Baum selbst wächst in createTrees)
@@ -2712,6 +2912,7 @@ function createLots(wood) {
             log(q.x, 0.11 + row * 0.175, q.z, 0.095, 0.9, 0.095, face, Math.PI / 2);
         }
     }
+    return { flowerBed };
 }
 
 async function createVillage() {
@@ -2811,7 +3012,36 @@ async function createVillage() {
     const stone = new THREE.MeshStandardMaterial({ map: loadTex(PH('stacked_stone_wall', 'diff'), '#77736c'), roughness: 0.95 });
     stone.map.repeat.set(3, 0.6);
     const wood = new THREE.MeshStandardMaterial({ map: loadTex(ASSETS.wood, '#6b4f36'), roughness: 0.9, color: 0xc2ab8e });
-    createLots(wood);
+    const garden = createLots(wood);
+    // Gärten der zweiten Reihe: Lattenzaun im Rund, vorn ein Durchgang zum Pfad, links und rechts davon ein Blumenbeet
+    {
+        const segs = [];
+        for (const b of YARDS) {
+            const R = b.yard, N = Math.round(Math.PI * 2 * R / 1.9), gate = Math.atan2(Math.cos(b.face), Math.sin(b.face));
+            for (let i = 0; i < N; i++) {
+                const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, am = (a0 + a1) / 2;
+                const x0 = b.x + Math.cos(a0) * R, z0 = b.z + Math.sin(a0) * R, x1 = b.x + Math.cos(a1) * R, z1 = b.z + Math.sin(a1) * R;
+                if (Math.min(heightAt(x0, z0), heightAt(x1, z1)) < WATER_LEVEL + 0.25) continue; // am Ufer bleibt der Garten offen
+                if (Math.abs(Math.atan2(Math.sin(am - gate), Math.cos(am - gate))) < 1.0 / R) continue; // Durchgang
+                segs.push([x0, z0, x1, z1]);
+            }
+            for (const sd of [-1, 1]) {
+                const bx = b.x + Math.sin(b.face) * (R - 0.75) + Math.cos(b.face) * sd * 2.3, bz = b.z + Math.cos(b.face) * (R - 0.75) - Math.sin(b.face) * sd * 2.3;
+                if (heightAt(bx, bz) > WATER_LEVEL + 0.4) garden.flowerBed(bx, bz, 2.0, 0.5, b.face);
+            }
+        }
+        const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.06, 1.05, 6), wood, segs.length * 2), rails = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.07, 0.04), wood, segs.length * 2);
+        const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+        segs.forEach(([x0, z0, x1, z1], i) => {
+            posts.setMatrixAt(i * 2, m4.makeTranslation(x0, heightAt(x0, z0) + 0.45, z0)); posts.setMatrixAt(i * 2 + 1, m4.makeTranslation(x1, heightAt(x1, z1) + 0.45, z1));
+            const xm = (x0 + x1) / 2, zm = (z0 + z1) / 2, len = Math.hypot(x1 - x0, z1 - z0);
+            q.setFromAxisAngle(up, -Math.atan2(z1 - z0, x1 - x0));
+            [0.38, 0.8].forEach((hy, k) => rails.setMatrixAt(i * 2 + k, m4.compose(v.set(xm, (heightAt(x0, z0) + heightAt(x1, z1)) / 2 + hy, zm), q, sc.set(len, 1, 1))));
+            obstacles.push({ x: xm, z: zm, r: 0.95 });
+        });
+        posts.castShadow = rails.castShadow = posts.receiveShadow = rails.receiveShadow = true; posts.frustumCulled = rails.frustumCulled = false;
+        scene.add(posts, rails);
+    }
     const g = new THREE.Group();
     g.position.set(WELL.x, heightAt(WELL.x, WELL.z), WELL.z);
     const add = (geo, mat, x, y, z, parent = g) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; parent.add(m); return m; };
@@ -2847,7 +3077,7 @@ async function createVillage() {
     // Laternen am Wegrand
     const lamps = [[0.25, -2.7], [0.45, 2.9], [0.8, -2.8]].map(([t, off]) => {
         const lp = roadPoint(t, off), y = heightAt(lp.x, lp.z);
-        const l = new THREE.PointLight(0xffa24a, 0, 28, 1.6);
+        const l = new THREE.Group(); // nur Halter für die Birne; echtes Licht kommt aus dem gemeinsamen Vorrat (s. updateVillage)
         l.position.set(lp.x, y + 2.7, lp.z);
         const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), new THREE.MeshBasicMaterial({ color: 0x000000 }));
         l.add(bulb); l.userData.bulb = bulb;
@@ -2870,9 +3100,11 @@ async function createVillage() {
         obstacles.push({ x, z, r: 0.3 });
         lanterns.push({ pos: bulb.position, bulb, glow });
     }
-    const lanternLights = [0, 1].map(() => { const l = new THREE.PointLight(0xffa24a, 0, 22, 1.7); scene.add(l); return l; });
+    // Echte Punktlichter sind teuer (jedes wird für jeden Grashalm mitgerechnet). Deshalb gibt es nur drei, die nachts
+    // jeweils zu den Lichtquellen wandern, die der Figur am nächsten sind; am Tag sind sie ganz aus.
+    const lightPool = [0, 1, 2].map(() => { const l = new THREE.PointLight(0xffa24a, 0, 26, 1.6); l.visible = false; scene.add(l); return l; });
     for (const q of porches) {
-        const l = new THREE.PointLight(0xffb060, 0, 14, 1.8);
+        const l = new THREE.Group();
         l.position.copy(q);
         l.userData.bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0x000000 }));
         l.userData.power = 10;
@@ -2951,6 +3183,84 @@ async function createVillage() {
         scene.add(deck, posts);
         decks.push({ x0, x1, z0: z - 0.65, z1: z + 0.65, y: y + 0.035, low: true });
     }
+    // Jeep zum Fahren, geparkt am Wegrand vor der Kirche ("Willys Jeep Low Poly" von InnocentBaraka, sketchfab.com, CC-BY 4.0)
+    try {
+        const m = (await loader.loadAsync('village/jeep.glb')).scene;
+        m.traverse((o) => { if (o.isMesh && /ground/i.test(o.name + o.material.name)) o.visible = false; }); // die Bodenplatte des Modells bleibt weg
+        const box = new THREE.Box3();
+        m.updateMatrixWorld(true);
+        m.traverse((o) => { if (o.isMesh && o.visible) { o.castShadow = o.receiveShadow = true; Object.assign(o.material, { transparent: false, depthWrite: true, alphaTest: 0.5, metalness: 0, roughness: 0.75 }); box.expandByObject(o); } });
+        const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3()), sc = 3.5 / Math.max(size.x, size.z), turn = new THREE.Group();
+        m.scale.multiplyScalar(sc); m.position.set(-c.x * sc, -box.min.y * sc, -c.z * sc);
+        turn.add(m); turn.rotation.y = (size.x > size.z ? Math.PI / 2 : 0) + JEEP.flip; // Motorhaube zeigt nach +z
+        const g = new THREE.Group(), at = roadPoint(JEEP.t, JEEP.off), dir = roadPoint(JEEP.t + 0.02, JEEP.off);
+        g.rotation.order = 'YXZ';
+        // Das Modell ist aus einem Stück. Damit sich die Räder drehen, werden ihre Dreiecke herausgelöst: alles, was außen
+        // an der Seite innerhalb des Reifenradius um eine Achse liegt, wird zu einem eigenen Rad.
+        turn.updateMatrixWorld(true);
+        const wheels = [];
+        m.traverse((o) => {
+            if (!o.isMesh || !o.visible) return;
+            const geo = o.geometry.toNonIndexed().applyMatrix4(o.matrixWorld), pos = geo.attributes.position, R = JEEP.wheelR, n = pos.count / 3;
+            const axles = [1, -1].map((sg) => { let sum = 0, cnt = 0; for (let i = 0; i < pos.count; i++) if (pos.getY(i) < 0.07 && pos.getZ(i) * sg > 0.3 && Math.abs(pos.getX(i)) > 0.45) { sum += pos.getZ(i); cnt++; } return cnt ? sum / cnt : sg * 1.05; }); // Aufstandspunkte der Reifen
+            const group = new Int8Array(n).fill(-1);
+            for (let t = 0; t < n; t++) for (let k = 0; k < 4; k++) {
+                const za = axles[k >> 1], sx = k & 1 ? 1 : -1;
+                let inside = true;
+                for (let c = 0; c < 3 && inside; c++) { const i = t * 3 + c; inside = pos.getX(i) * sx > 0.45 && Math.hypot(pos.getY(i) - R, pos.getZ(i) - za) < R * 1.05; }
+                if (inside) { group[t] = k; break; }
+            }
+            const part = (k) => { // neue Geometrie aus den Dreiecken einer Gruppe
+                const out = new THREE.BufferGeometry();
+                for (const name of Object.keys(geo.attributes)) {
+                    const a = geo.attributes[name], sz = a.itemSize, arr = [];
+                    for (let t = 0; t < n; t++) if (group[t] === k) for (let c = 0; c < 3 * sz; c++) arr.push(a.array[t * 3 * sz + c]);
+                    out.setAttribute(name, new THREE.BufferAttribute(new a.array.constructor(arr), sz, a.normalized));
+                }
+                return out;
+            };
+            const body = new THREE.Mesh(part(-1), o.material);
+            body.castShadow = body.receiveShadow = true; g.add(body);
+            for (let k = 0; k < 4; k++) {
+                const wg = part(k);
+                if (!wg.attributes.position.count) continue;
+                const w = new THREE.Mesh(wg.translate(0, -R, -axles[k >> 1]), o.material);
+                w.position.set(0, R, axles[k >> 1]); w.castShadow = true; g.add(w); wheels.push(w);
+            }
+        });
+        jeep = { g, wheels, x: at.x, z: at.z, heading: Math.atan2(dir.x - at.x, dir.z - at.z), speed: 0, ob: { x: at.x, z: at.z, r: 1.7 } };
+        obstacles.push(jeep.ob);
+        placeJeep(1);
+        scene.add(g);
+    } catch (err) { console.warn('Modell fehlt: jeep', err); }
+    // Wegweiser an den Abzweigungen: Bretter zeigen in die Richtung des Ziels, von beiden Seiten lesbar
+    const board = (text) => {
+        const cv = document.createElement('canvas'); cv.width = 512; cv.height = 112;
+        const g2 = cv.getContext('2d');
+        g2.fillStyle = '#7a5a3c'; g2.fillRect(0, 0, 512, 112);
+        g2.fillStyle = 'rgba(0,0,0,0.12)'; for (let i = 0; i < 40; i++) g2.fillRect(0, rnd() * 112, 512, 1 + rnd() * 2); // Maserung
+        g2.fillStyle = '#f3ead8'; g2.font = '600 58px system-ui, sans-serif'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText(text, 256, 60);
+        const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
+        return new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 });
+    };
+    const signpost = (x, z, targets) => {
+        const y = heightAt(x, z), post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.065, 2.5, 8), wood);
+        post.position.set(x, y + 1.25, z); post.castShadow = true; scene.add(post);
+        targets.forEach(([label, tx, tz], i) => {
+            const mats = [wood, wood, wood, wood, board(label + ' \u2192'), board('\u2190 ' + label)];
+            const b = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.25, 0.04), mats);
+            const a = Math.atan2(tz - z, tx - x);
+            b.position.set(x + Math.cos(a) * 0.5, y + 2.3 - i * 0.31, z + Math.sin(a) * 0.5); b.rotation.y = -a; b.castShadow = true;
+            scene.add(b);
+        });
+        obstacles.push({ x, z, r: 0.3 });
+    };
+    { const r0 = roadPoint(0.5, 0), mill = BUILDINGS.find((k) => k.file === 'windmill'), ch = BUILDINGS.find((k) => k.file === 'church'), pen = PEN;
+      signpost(3.6, 0.2, [['Dorf', r0.x, r0.z], ['Brücke', BRIDGE.x1, BRIDGE.z], ['Lagerplatz', CAMP.x, CAMP.z]]);
+      const sq = roadPoint(0.5, 2.6);
+      signpost(sq.x, sq.z, [['Mühle', mill.x, mill.z], ['Kirche', ch.x, ch.z], ['Pferde', pen.x, pen.z], ['Fluss', 0, 0]]);
+      signpost(TRACK[0].x + 2.4, TRACK[0].z - 1.6, [['Stadt 12 km', TRACK[2].x, TRACK[2].z], ['Dorf', r0.x, r0.z]]);
+      signpost(BRIDGE.x0 - 1.2, BRIDGE.z + 1.4, [['Lagerplatz', CAMP.x, CAMP.z], ['Schafweide', HERDS.sheep.x, HERDS.sheep.z], ['Dorf', BRIDGE.x1, BRIDGE.z]]); }
     // Bogenbrücke: Bohlen folgen dem Bogen, Geländer auf beiden Seiten, Pfähle im Wasser
     {
         const { z, x0, x1, half, rise } = BRIDGE, len = x1 - x0, y0 = heightAt(x0, z) + 0.04, y1 = heightAt(x1, z) + 0.04;
@@ -2975,12 +3285,12 @@ async function createVillage() {
         decks.push({ x0, x1, z0: z - half, z1: z + half, yAt });
     }
     // Lagerplatz: Feuerstelle mit Steinkranz, Zelt und zwei Stämmen zum Sitzen
-    const fire = { u: { uTime: { value: 0 } }, light: new THREE.PointLight(0xff8a3a, 0, 20, 1.6) };
+    const fire = { u: { uTime: { value: 0 } }, pos: new THREE.Vector3() };
     {
         const { x, z } = CAMP, y = heightAt(x, z), camp = new THREE.Group();
         camp.position.set(x, y, z);
         const stoneMat = new THREE.MeshStandardMaterial({ color: 0x8a867c, roughness: 1, flatShading: true });
-        for (let k = 0; k < 9; k++) { const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.13 + rnd() * 0.05, 0), stoneMat); st.position.set(Math.cos(k * 0.698) * 0.5, 0.06, Math.sin(k * 0.698) * 0.5); st.rotation.set(rnd() * 3, rnd() * 3, 0); st.castShadow = true; camp.add(st); }
+        for (let k = 0; k < 9; k++) { const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.13 + rnd() * 0.05, 0), stoneMat); st.position.set(Math.cos(k * 0.698) * 0.5, heightAt(x + Math.cos(k * 0.698) * 0.5, z + Math.sin(k * 0.698) * 0.5) - y + 0.05, Math.sin(k * 0.698) * 0.5); st.rotation.set(rnd() * 3, rnd() * 3, 0); st.castShadow = true; camp.add(st); }
         for (let k = 0; k < 4; k++) { const lg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.75, 6), wood); lg.position.set(Math.cos(k * 1.571 + 0.4) * 0.12, 0.2, Math.sin(k * 1.571 + 0.4) * 0.12); lg.rotation.set(Math.sin(k * 1.571 + 0.4) * 0.75, 0, -Math.cos(k * 1.571 + 0.4) * 0.75); camp.add(lg); }
         // Flammen: zwei gekreuzte Flächen, die Form flackert im Shader
         const flameMat = new THREE.ShaderMaterial({
@@ -2995,16 +3305,16 @@ async function createVillage() {
                 }`
         });
         for (const ry of [0, Math.PI / 2]) { const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.0).translate(0, 0.55, 0), flameMat); fl.rotation.y = ry + 0.4; fl.renderOrder = 3; camp.add(fl); }
-        fire.light.position.set(0, 0.7, 0); camp.add(fire.light);
+        fire.pos.set(x, y + 0.7, z);
         // Zelt: zwei schräge Bahnen, hinten geschlossen, vorn offen zum Feuer
         const tg = new THREE.BufferGeometry(), L = 2.3, W = 0.85, H = 1.25;
         tg.setAttribute('position', new THREE.Float32BufferAttribute([-W, 0, -L / 2, 0, H, -L / 2, 0, H, L / 2, -W, 0, -L / 2, 0, H, L / 2, -W, 0, L / 2,
             W, 0, -L / 2, 0, H, L / 2, 0, H, -L / 2, W, 0, -L / 2, W, 0, L / 2, 0, H, L / 2, -W, 0, -L / 2, W, 0, -L / 2, 0, H, -L / 2], 3));
         tg.computeVertexNormals();
         const tent = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ color: 0xb7a36e, roughness: 0.95, side: THREE.DoubleSide }));
-        tent.position.set(-2.6, 0, -1.2); tent.rotation.y = 1.15; tent.castShadow = tent.receiveShadow = true;
+        tent.position.set(-2.6, Math.min(heightAt(x - 2.6, z - 1.2), heightAt(x - 3.4, z - 1.8), heightAt(x - 1.8, z - 0.6)) - y - 0.03, -1.2); tent.rotation.y = 1.15; tent.castShadow = tent.receiveShadow = true;
         camp.add(tent);
-        for (const [lx, lz, ry] of [[1.3, 0.9, 0.9], [0.2, -1.7, -0.2]]) { const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 1.5, 9).rotateZ(Math.PI / 2), wood); seat.position.set(lx, 0.16, lz); seat.rotation.y = ry; seat.castShadow = seat.receiveShadow = true; camp.add(seat); seats.push({ x: x + lx, z: z + lz, face: Math.atan2(-lx, -lz), h: 0.35 }); }
+        for (const [lx, lz, ry] of [[1.3, 0.9, 0.9], [0.2, -1.7, -0.2]]) { const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 1.5, 9).rotateZ(Math.PI / 2), wood); seat.position.set(lx, heightAt(x + lx, z + lz) - y + 0.15, lz); seat.rotation.y = ry; seat.castShadow = seat.receiveShadow = true; camp.add(seat); seats.push({ x: x + lx, z: z + lz, face: Math.atan2(-lx, -lz), h: 0.35 }); }
         scene.add(camp);
         obstacles.push({ x, z, r: 0.75 }, { x: x - 2.6, z: z - 1.2, r: 1.2 });
         chimneys.push(new THREE.Vector3(x, y + 0.9, z)); // der Rauch des Feuers nutzt dieselben Schwaden wie die Schornsteine
@@ -3054,7 +3364,8 @@ async function createVillage() {
         smoke.frustumCulled = false; smoke.layers.set(NO_MIRROR);
         scene.add(smoke);
     }
-    village = { glow, lamps, cats, fallLeaves, boats, mills, smokeU, lanterns, lanternLights, fire, flies };
+    const sources = [...lamps.map((l) => ({ pos: l.position, power: l.userData.power ?? 45, color: 0xffa24a })), ...lanterns.map((q) => ({ pos: q.pos, power: 30, color: 0xffa24a })), { pos: fire.pos, power: 26, color: 0xff8a3a, fire: true }];
+    village = { glow, lamps, cats, fallLeaves, boats, mills, smokeU, lanterns, lightPool, sources, fire, flies };
 }
 const night0 = (day) => 1 - smooth(0.15, 0.6, day);
 function updateVillage(day, dt) {
@@ -3068,7 +3379,7 @@ function updateVillage(day, dt) {
     // Lagerfeuer flackert; nachts trägt sein Licht weit, am Tag kaum
     const ft = clock.elapsedTime;
     village.fire.u.uTime.value = ft;
-    village.fire.light.intensity = lerp(22, 5, day) * (0.78 + 0.14 * Math.sin(ft * 11.3) + 0.08 * Math.sin(ft * 23.7 + 1.3));
+    const flicker = 0.78 + 0.14 * Math.sin(ft * 11.3) + 0.08 * Math.sin(ft * 23.7 + 1.3);
     const fu = village.flies.material.uniforms, pp0 = player ? player.model.position : START;
     fu.uAmt.value = night0(day) * clamp01(1 - S.frost * 2) * (1 - state.weather);
     village.flies.visible = fu.uAmt.value > 0.01;
@@ -3086,14 +3397,16 @@ function updateVillage(day, dt) {
         village.lanternsOn = night > 0.01;
         const pp = player ? player.model.position : START;
         for (const q of village.lanterns) { q.bulb.material.color.setRGB(6 * night, 3.2 * night, 1.2 * night); q.glow.material.opacity = night * 0.55; q.d = q.pos.distanceTo(pp); }
-        const near = [...village.lanterns].sort((a, b) => a.d - b.d);
-        village.lanternLights.forEach((l, i) => { // weit weg ausgeblendet, damit der Wechsel zur nächsten Laterne nicht auffällt
+        for (const q of village.sources) q.d = q.pos.distanceTo(pp);
+        const near = [...village.sources].sort((a, b) => a.d - b.d);
+        village.lightPool.forEach((l, i) => { // weit weg ausgeblendet, damit der Wechsel zur nächsten Quelle nicht auffällt
             const q = near[i];
-            if (q) l.position.copy(q.pos);
-            l.intensity = q ? night * 30 * smooth(48, 26, q.d) : 0;
+            l.visible = night > 0.01;
+            l.position.copy(q.pos); l.color.set(q.color);
+            l.intensity = night * q.power * smooth(52, 28, q.d) * (q.fire ? flicker : 1);
         });
     }
-    for (const l of village.lamps) { l.intensity = night * (l.userData.power ?? 45); l.userData.bulb.material.color.setRGB(6 * night, 3.2 * night, 1.2 * night); }
+    for (const l of village.lamps) l.userData.bulb.material.color.setRGB(6 * night, 3.2 * night, 1.2 * night);
 }
 
 /**
@@ -3110,7 +3423,7 @@ const HERDS = {
     pen: { x: PEN.x, z: PEN.z, side: 1, fixed: true, roam: 6 },
     sheep: { x: -42, z: -30, side: -1, fixed: true, roam: 10 }, // Schafe weiden am anderen Ufer hinter dem Lagerplatz
     coop: Object.assign(lotW(LOTS[0], 0.5, -6.5), { side: 1, fixed: true, roam: 4.5 }), // Hühner scharren im Garten hinter dem ersten Haus
-    wolf2: { x: -40, z: 14, side: -1, timer: 55 },
+    wolf2: { x: -62, z: 46, side: -1, timer: 55 },
     hare: { x: 12, z: 20, side: 1, timer: 25 },
     hare2: { x: 30, z: -8, side: 1, timer: 35 }
 };
@@ -3321,7 +3634,7 @@ async function createCritters() {
     const spawn = (def, model, clips, herdName) => {
         const herd = HERDS[herdName ?? def.herd];
         const c = { def, model, herd, mixer: null, idles: [], idle: 0, w: [1, 0, 0], state: 'idle', timer: 1 + rnd() * 8,
-            human: /farmer|man\.glb|peasant/.test(def.file ?? ''), x: herd.x + (rnd() - 0.5) * 8, z: herd.z + (rnd() - 0.5) * 8, heading: rnd() * 6.28, tx: 0, tz: 0, stride: 0 };
+            human: /farmer|man\.glb|peasant/.test(def.file ?? ''), hen: /chicken/.test(def.file ?? ''), x: herd.x + (rnd() - 0.5) * 8, z: herd.z + (rnd() - 0.5) * 8, heading: rnd() * 6.28, tx: 0, tz: 0, stride: 0 };
         model.traverse((o) => {
             if (!o.isMesh) return;
             o.castShadow = !o.userData.noShadow; o.receiveShadow = true; o.frustumCulled = false;
@@ -3388,11 +3701,12 @@ async function createCritters() {
 
 function updateCritters(dt, time) {
     const pp = player ? player.model.position : START;
-    for (const h of Object.values(HERDS)) {
+    for (const [name, h] of Object.entries(HERDS)) {
         if (h.fixed || (h.timer -= dt) > 0) continue;
         h.timer = 40 + rnd() * 50; // das Rudel zieht ein Stück weiter
         const a = rnd() * 6.28, r = 10 + rnd() * 22, x = h.x + Math.cos(a) * r, z = h.z + Math.sin(a) * r;
-        if (critterOk(x, z, h.side) && Math.hypot(x, z) < 85 && roadDist(x, z) > ROAD.half + 10) { h.x = x; h.z = z; }
+        const nearSheep = name.startsWith('wolf') && (x - HERDS.sheep.x) ** 2 + (z - HERDS.sheep.z) ** 2 < 55 ** 2; // die Wölfe halten Abstand zur Herde
+        if (!nearSheep && critterOk(x, z, h.side) && Math.hypot(x, z) < 85 && roadDist(x, z) > ROAD.half + 10) { h.x = x; h.z = z; }
     }
     for (const c of critters) {
         const d = c.def, h = c.herd;
@@ -3409,10 +3723,11 @@ function updateCritters(dt, time) {
                 break;
             }
         }
-        if (c.human) { // nachts gehen die Dorfbewohner ins nächste Haus, morgens kommen sie wieder heraus
+        if (c.human || c.hen) { // nachts gehen die Dorfbewohner ins nächste Haus und die Hühner in den Stall, morgens kommen sie wieder heraus
             if (nightNow > 0.65 && !c.home) {
-                const hb = BUILDINGS.filter((k) => /house/.test(k.file) && roadDist(k.x, k.z) < 16).sort((a, b) => (a.x - c.x) ** 2 + (a.z - c.z) ** 2 - (b.x - c.x) ** 2 - (b.z - c.z) ** 2)[0];
-                c.home = { x: hb.x + Math.sin(hb.face) * (hb.r + 2.2), z: hb.z + Math.cos(hb.face) * (hb.r + 2.2), t: 40 };
+                const hb = BUILDINGS.filter((k) => c.hen ? k.file === 'coop' : /house/.test(k.file) && roadDist(k.x, k.z) < 16).sort((a, b) => (a.x - c.x) ** 2 + (a.z - c.z) ** 2 - (b.x - c.x) ** 2 - (b.z - c.z) ** 2)[0];
+                const out = c.hen ? 0.4 : 2.2;
+                c.home = { x: hb.x + Math.sin(hb.face) * (hb.r + out), z: hb.z + Math.cos(hb.face) * (hb.r + out), t: c.hen ? 25 : 40 };
             } else if (nightNow < 0.35 && c.home) { c.home = null; c.model.visible = true; c.state = 'idle'; c.timer = rnd() * 6; }
             if (c.home) {
                 c.home.t -= dt;
@@ -3455,7 +3770,7 @@ function updateCritters(dt, time) {
         c.w[1] += ((c.state === 'walk' ? 1 : 0) - c.w[1]) * k;
         c.w[2] += ((c.state === 'flee' ? 1 : 0) - c.w[2]) * k;
         c.w[0] = Math.max(0, 1 - c.w[1] - c.w[2]);
-        c.model.position.set(c.x, heightAt(c.x, c.z), c.z);
+        c.model.position.set(c.x, c.ridden ? c.gy : heightAt(c.x, c.z), c.z);
         c.model.rotation.y = c.heading;
         if (c.mixer) {
             c.idles.forEach((a, i) => a.setEffectiveWeight(a.getEffectiveWeight() + ((i === c.idle ? c.w[0] : 0) - a.getEffectiveWeight()) * k));
@@ -3794,6 +4109,14 @@ function onWindowResize() {
 
 // Läuft die Szene zu langsam, wird in Stufen gröber gerendert (nie wieder feiner, damit es nicht pendelt)
 const quality = { frames: 0, t: 0, warm: 8, slow: 0 };
+const meter = { frames: 0, t: 0 };
+function showFps(raw) {
+    meter.frames++; meter.t += raw;
+    if (meter.t < 0.5) return;
+    const el = document.getElementById('fps');
+    if (el.style.display === 'block') el.textContent = `${Math.round(meter.frames / meter.t)} Bilder/s · Auflösung ${renderer.getPixelRatio().toFixed(2)}x`;
+    meter.frames = meter.t = 0;
+}
 function adaptQuality(raw) {
     if (document.hidden || raw > 0.4) { quality.frames = quality.t = 0; return; } // Tab im Hintergrund zählt nicht
     if ((quality.warm -= raw) > 0) return;
@@ -3811,6 +4134,7 @@ function adaptQuality(raw) {
 function animate() {
     const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
     adaptQuality(raw);
+    showFps(raw);
     const time = clock.elapsedTime;
 
     state.season = Math.min(state.season + dt * 0.3, params.targetSeason);
@@ -3966,6 +4290,7 @@ function animate() {
     godrays.uniforms.uStrength.value = rayAmt * 0.9;
     godrays.enabled = rayAmt > 0.01;
 
+    renderer.shadowMap.needsUpdate = (frameNo++ & 1) === 0;
     composer.render();
     if (photo) { // gleich nach dem Zeichnen ist das Bild noch im Puffer
         photo = false;
