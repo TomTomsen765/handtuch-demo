@@ -81,7 +81,7 @@
 <div id="hello"></div>
 <div id="stick"><i></i></div>
 <div id="hint" onclick="window.interact()"></div>
-<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Hund, Hinsetzen | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
+<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Hund, Hinsetzen | P: Foto | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
     <summary>Modelle &amp; Lizenzen</summary>
@@ -93,7 +93,7 @@
         „Low Poly Church“ von Yanez-Designs · „Windmill Stylized“ von a_l_e_x_a_n_d_e_r ·
         „Chicken – rigged“ von Maf'j Alvarez · „Lupe Goat“ von jackiebatteau · „Artia, the Walking Peasant“ von paolo.russo ·
         „Wooden Boat“ von o0ozexo0o · „Boat“ von bumstrum · „Malpas Wooden Boat Wreck“ von artfletch.
-        Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Stockente von Jonathon Jongsma (CC BY-SA 3.0), Glocke der Samariterkirche von Pete w. View und Rabenkrähe von Marie-Lan Taÿ Pamart (beide <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
+        Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Stockente von Jonathon Jongsma (CC BY-SA 3.0), Schafe von earthcalling (gemeinfrei), Glocke der Samariterkirche von Pete w. View und Rabenkrähe von Marie-Lan Taÿ Pamart (beide <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
         Außerdem: „Cat“ von J-Toastie (CC BY 3.0, Poly Pizza), Dorf- und Tiermodelle von Quaternius (CC0), Texturen von Poly Haven (CC0), Bäume mit ez-tree.
     </p>
 </details>
@@ -482,6 +482,7 @@ const ripples = Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -100, 0)
 let rippleIdx = 0;
 const addRipple = (x, z, strength = 1) => ripples[rippleIdx++ % ripples.length].set(x, z, clock.elapsedTime, strength);
 const riverSlope = (z) => 0.15 * Math.cos(z * 0.03) + 0.033 * Math.cos(z * 0.011 + 1.3) + 0.142 * Math.cos(z * 0.071 - 0.9); // d riverX / dz
+let photo = false;
 const seats = []; // Sitzplätze: { x, z, face (Blickrichtung), h (Sitzhöhe) }
 let nightNow = 0; // 0 Tag … 1 Nacht, für das Dorfleben
 const decks = []; // begehbare Stege und Brücken: { x0, x1, z0, z1, y } oder mit yAt(x) für einen Bogen; low: Boote kommen nicht darunter durch
@@ -665,6 +666,7 @@ async function init() {
         if (e.code === 'KeyE') window.toggleWeather();
         if (e.code === 'KeyT') window.toggleTime();
         if (e.code === 'KeyF') interact();
+        if (e.code === 'KeyP') photo = true; // Foto: das nächste fertige Bild wird ohne Bedienelemente gespeichert
         if (e.code === 'KeyM' && sound) { sound.muted = !sound.muted; sound.master.gain.setTargetAtTime(sound.muted ? 0 : 0.9, sound.ctx.currentTime, 0.1); }
         if (e.code === 'KeyZ') { params.todRun = !params.todRun; state.todText = ''; }
         if (e.key >= '1' && e.key <= '4') window.setSeason(Number(e.key) - 1);
@@ -3063,6 +3065,7 @@ const HERDS = {
     // Dorf: Bewohner, Hunde und Katzen bleiben am Platz, das Vieh im Pferch
     village: { x: WELL.x, z: WELL.z, side: 1, fixed: true, pick: () => roadPoint(0.1 + rnd() * 0.88, (rnd() - 0.5) * 5) },
     pen: { x: PEN.x, z: PEN.z, side: 1, fixed: true, roam: 6 },
+    sheep: { x: -42, z: -30, side: -1, fixed: true, roam: 10 }, // Schafe weiden am anderen Ufer hinter dem Lagerplatz
     coop: Object.assign(lotW(LOTS[0], 0.5, -6.5), { side: 1, fixed: true, roam: 4.5 }), // Hühner scharren im Garten hinter dem ersten Haus
     wolf2: { x: -40, z: 14, side: -1, timer: 55 },
     hare: { x: 12, z: 20, side: 1, timer: 25 },
@@ -3208,6 +3211,26 @@ const buildBadger = () => buildBeast({
     gait: { gaitK: 17, swing: 0.6, knee: 0.8, bob: 0.008, roll: 0.05, pitch: 0 }
 });
 
+// Schaf: dicke Wolle über Rumpf und Hals, dunkles Gesicht und dunkle Beine
+const buildSheep = () => buildBeast({
+    spine: [[-0.56, 0.6, 0.02, 0.02], [-0.5, 0.61, 0.15, 0.16], [-0.27, 0.63, 0.23, 0.24], [0.03, 0.63, 0.24, 0.25], [0.28, 0.65, 0.2, 0.22],
+        [0.42, 0.71, 0.115, 0.125], [0.54, 0.75, 0.085, 0.09], [0.65, 0.71, 0.058, 0.055], [0.705, 0.69, 0.015, 0.015]],
+    color: (z, a) => z > 0.49 ? 0x2b2521 : a > 2.4 ? 0xcfc6b0 : 0xece5d3,
+    fur: { len: 0.055, density: 150, shells: 9 },
+    legs: [
+        { x: 0.13, y: 0.42, z: 0.27, l1: 0.2, l2: 0.2, r: 0.045, r2: 0.028, paw: [0.032, 0.028, 0.042], color: 0x2b2521 },
+        { x: 0.14, y: 0.42, z: -0.31, l1: 0.2, l2: 0.2, r: 0.05, r2: 0.028, paw: [0.032, 0.028, 0.042], color: 0x2b2521 }
+    ],
+    extras: (blob) => {
+        blob(0x14100e, 0.022, 0.016, 0.014, 0, 0.7, 0.712, undefined, 0.5);
+        for (const sx of [-1, 1]) {
+            blob(0x2b2521, 0.055, 0.02, 0.032, sx * 0.115, 0.79, 0.5);           // Ohren stehen seitlich ab
+            blob(0x050505, 0.011, 0.011, 0.011, sx * 0.062, 0.775, 0.6, undefined, 0.3);
+        }
+    },
+    gait: { gaitK: 7, swing: 0.42, knee: 0.55, bob: 0.008, roll: 0.03, pitch: 0 }
+});
+
 const buildHare = () => buildBeast({
     spine: [[-0.25, 0.13, 0.01, 0.01], [-0.21, 0.14, 0.075, 0.085], [-0.08, 0.165, 0.1, 0.12], [0.06, 0.155, 0.085, 0.1], [0.16, 0.18, 0.062, 0.07],
         [0.235, 0.215, 0.058, 0.064], [0.3, 0.205, 0.04, 0.044], [0.34, 0.2, 0.01, 0.01]],
@@ -3275,6 +3298,7 @@ async function createCritters() {
         critters.push(c);
     };
     spawn({ herd: 'badger', vWalk: 0.55, vRun: 2.6, flee: 6 }, buildBadger(), null);
+    for (let i = 0; i < 7; i++) { const sh = buildSheep(); sh.scale.setScalar(i > 4 ? 0.62 : 0.92 + rnd() * 0.16); spawn({ herd: 'sheep', sheep: true, vWalk: 0.3, vRun: 3.4, flee: 3.2 }, sh, null); } // zwei Lämmer dabei
     for (let i = 0; i < 9; i++) spawn({ hare: true, vWalk: 1.1, vRun: 6.5, flee: 8 }, buildHare(), null, i < 5 ? 'hare' : 'hare2');
 
     await Promise.all(CRITTERS.map(async (def) => {
@@ -3524,7 +3548,7 @@ function startSound() {
         bird: 1, crickets: [], step: 0 };
     // Aufnahmen für Laute, die sich schlecht erzeugen lassen (Hund, Glocke); fehlen sie, bleibt es beim erzeugten Klang
     sound.samples = {};
-    for (const name of ['bark1.ogg', 'bark2.ogg', 'bell.ogg', 'crow.mp3', 'duck.mp3']) fetch(`sounds/${name}`).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((b) => { sound.samples[name.split('.')[0]] = b; }).catch(() => {});
+    for (const name of ['bark1.ogg', 'bark2.ogg', 'bell.ogg', 'crow.mp3', 'duck.mp3', 'sheep.ogg']) fetch(`sounds/${name}`).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((b) => { sound.samples[name.split('.')[0]] = b; }).catch(() => {});
     // Grillen: mehrere Tiere, jedes mit eigener Tonhöhe und eigenem Platz; gezirpt wird in updateSound in kurzen Dreierstößen
     sound.crickets = Array.from({ length: 5 }, () => {
         const osc = ctx.createOscillator(), g = ctx.createGain(), pan = ctx.createStereoPanner?.() ?? ctx.createGain();
@@ -3646,6 +3670,11 @@ function updateSound(dt, day, rainAmt) {
     if (dFire < 16 && (sound.crackle = (sound.crackle ?? 0) - dt) < 0) {
         sound.crackle = 0.05 + Math.random() * 0.35;
         soundBurst('bandpass', 1800 + Math.random() * 3500, 3, 0.11 * smooth(16, 2, dFire) * (0.3 + Math.random()), 0.03 + Math.random() * 0.05);
+    }
+    if ((sound.sheep = (sound.sheep ?? 14) - dt) < 0) { // die Schafe blöken, lauter je näher man der Herde ist
+        sound.sheep = 14 + Math.random() * 36;
+        const vol = 0.4 * smooth(70, 6, Math.hypot(pp.x - HERDS.sheep.x, pp.z - HERDS.sheep.z)), [at, len] = Math.random() < 0.5 ? [0.5, 1.25] : [5.5, 1.85];
+        if (vol > 0.02 && day > 0.15) playSample('sheep', vol, at, len, 0.92 + Math.random() * 0.2, 0, Math.random() * 1.2 - 0.6);
     }
     if ((sound.duck = (sound.duck ?? 9) - dt) < 0) { // die Enten schnattern, wenn man in ihrer Nähe ist
         sound.duck = 12 + Math.random() * 30;
@@ -3892,6 +3921,10 @@ function animate() {
     godrays.enabled = rayAmt > 0.01;
 
     composer.render();
+    if (photo) { // gleich nach dem Zeichnen ist das Bild noch im Puffer
+        photo = false;
+        renderer.domElement.toBlob((blob) => { const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `handtuch-${Date.now()}.png`; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 5000); });
+    }
 }
 
 function updateLabels() {
