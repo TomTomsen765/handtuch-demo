@@ -67,6 +67,16 @@
         .fly { position: absolute; right: 22px; z-index: 10; display: none; width: 62px; height: 62px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.45); background: rgba(20,28,36,0.35); color: #fff; font-size: 24px; touch-action: none; }
         #map { position: absolute; right: 20px; bottom: 52px; z-index: 9; width: 150px; height: 150px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); box-shadow: 0 6px 20px rgba(0,0,0,0.4); pointer-events: none; }
         @media (max-width: 760px) { #map { width: 104px; height: 104px; right: 10px; bottom: 44px; } }
+        #toast { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); z-index: 12; opacity: 0; transition: opacity 0.5s; pointer-events: none;
+            padding: 10px 20px; border-radius: 12px; background: rgba(20, 28, 36, 0.7); border: 1px solid rgba(255,255,255,0.3); color: #fff; font-size: 13px; letter-spacing: 0.5px; white-space: nowrap; }
+        #goals { position: absolute; top: 20px; right: 280px; z-index: 11; display: none; width: 300px; max-height: 80%; overflow: auto; color: #fff; padding: 18px 20px; border-radius: 14px;
+            background: rgba(20, 28, 36, 0.78); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.22); font-size: 13px; line-height: 1.5; }
+        #goals h2 { margin: 0 0 10px; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+        #goals div { padding: 3px 0 3px 24px; position: relative; color: rgba(255,255,255,0.6); }
+        #goals div::before { content: '○'; position: absolute; left: 2px; }
+        #goals div.done { color: #fff; }
+        #goals div.done::before { content: '✓'; color: #9be28a; }
+        @media (max-width: 760px) { #goals { right: 10px; top: 190px; width: 240px; } }
         #hint {
             position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 10; display: none; cursor: pointer;
             padding: 9px 18px; border-radius: 12px; background: rgba(20, 28, 36, 0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -109,12 +119,15 @@
     <button class="btn" onclick="window.toggleSeason()">Q · Jahreszeit <b id="seasonLabel">Sommer</b></button>
     <button class="btn" onclick="window.toggleWeather()">E · Wetter <b id="weatherLabel">Heiter</b></button>
     <button class="btn" onclick="window.toggleTime()">T · Tageszeit <b id="todLabel">Tag 13:00</b></button>
+    <button class="btn" onclick="window.toggleGoals()">Entdeckungen <b id="goalsLabel">0/13</b></button>
     <button class="btn" onclick="document.getElementById('intro').classList.remove('gone')">Hilfe <b>?</b></button>
 </div>
 <div id="hello"></div>
 <div id="stick"><i></i></div>
 <div id="hint" onclick="window.interact()"></div>
 <div id="fps"></div>
+<div id="toast"></div>
+<div id="goals"></div>
 <canvas id="map" width="300" height="300"></canvas>
 <button class="fly" id="flyUp" style="bottom: 190px">▲</button>
 <button class="fly" id="flyDown" style="bottom: 116px">▼</button>
@@ -771,6 +784,7 @@ async function init() {
     document.getElementById('loader').classList.add('done');
     // beide Beleuchtungen (Tag ohne, Nacht mit Punktlichtern) vorab übersetzen, damit es in der Dämmerung nicht ruckt
     for (const on of [true, false]) { for (const l of village.lightPool) l.visible = on; renderer.compile(scene, camera); }
+    showGoals();
     const go = document.getElementById('introGo');
     go.disabled = false; go.textContent = "Los geht's";
 }
@@ -1753,6 +1767,7 @@ function walkable(x, z, fromY) {
 function rowBoat(pl, fwd, side, dt) {
     const b = pl.boat, u = b.userData, p = pl.model.position;
     u.speed += (Math.max(-1, Math.min(1, fwd)) * 2.6 - u.speed * 1.1) * dt;
+    if (Math.abs(u.speed) > 1.2) earn('boat');
     u.heading -= side * dt * 0.9 * (0.35 + Math.min(1, Math.abs(u.speed)));
     const sx = Math.sin(u.heading), sz = Math.cos(u.heading), dir = Math.sign(u.speed) || 1;
     // genug Wasser unter dem Kiel und kein Hindernis – geprüft an Bootsmitte und Bug
@@ -1809,6 +1824,7 @@ function pickUpLost() {
     const t = gale.t;
     scene.remove(gale.mesh); gale.mesh.geometry.dispose(); gale.mesh = null; gale.t = null; gale.beam.material.opacity = 0; gale.cool = 90;
     carryTowel(t);
+    player.rescued = true;
     say('Zurück an die Leine damit.', 3);
 }
 function carryTowel(t) {
@@ -1888,6 +1904,10 @@ function flyHeli(pl, fwd, side, up, dt) {
     const below = Math.max(heliGround(h.x, h.z), obstacleTop(h.x, h.z));
     if (h.y <= below) { h.y = below; if (h.vy < 0) h.vy = 0; } // Berge schieben den Hubschrauber nach oben, am Boden steht er
     h.landed = h.y <= below + 0.02 && Math.abs(h.speed) < 0.6;
+    if (h.landed && h.spin > 0.75) {
+        if ((h.x - ALP.x) ** 2 + (h.z - ALP.z) ** 2 < HELI.pad ** 2) earn('alp');
+        if (BUILDINGS.some((b) => (b.x - h.x) ** 2 + (b.z - h.z) ** 2 < (b.r * 0.85) ** 2) && h.y > heightAt(h.x, h.z) + 2.5) earn('roof');
+    }
     h.pitch += (h.speed * 0.016 - h.pitch) * (1 - Math.exp(-dt * 3)); // Nase runter im Vorwärtsflug
     h.roll += ((air ? side * 0.22 : 0) - h.roll) * (1 - Math.exp(-dt * 3));
     placeHeli();
@@ -1976,6 +1996,7 @@ function driveJeep(pl, fwd, side, run, dt) {
     const nx = j.x + sh * j.speed * dt, nz = j.z + ch * j.speed * dt;
     if (clear(nx, nz) && clear(nx + sh * dir * 1.6, nz + ch * dir * 1.6)) { j.x = nx; j.z = nz; } else j.speed *= -0.2; // Hindernis: kurz zurückfedern
     placeJeep(1 - Math.exp(-dt * 8));
+    if ((j.x - TRACK[2].x) ** 2 + (j.z - TRACK[2].z) ** 2 < 144) earn('jeep');
     for (const w of j.wheels) w.rotation.x += j.speed * dt / JEEP.wheelR; // Räder rollen mit
     j.steer += (side - j.steer) * (1 - Math.exp(-dt * 6));
     if (j.steering) j.steering.mesh.quaternion.setFromAxisAngle(j.steering.axis, j.steer * 1.3 * (j.steering.axis.y > 0 ? -1 : 1)); // Lenkrad dreht mit
@@ -2050,6 +2071,7 @@ function rideHorse(c, dt) {
         if (walkable(nx, nz, y)) { c.x = nx; c.z = nz; } else if (walkable(nx, c.z, y)) c.x = nx; else if (walkable(c.x, nz, y)) c.z = nz; else speed = 0;
     }
     c.state = speed > 3 ? 'flee' : speed > 0 ? 'walk' : 'idle';
+    if (speed > 3) earn('ride');
     c.timer = 3;
     { const g = heightAt(c.x, c.z), dk = deckY(c.x, c.z); c.gy = dk > g && (c.gy ?? g) > dk - 0.6 ? dk : g; } // auch das Pferd geht über Brücke und Steg
     // die Figur sitzt auf dem Pferderücken
@@ -2067,6 +2089,30 @@ function standUp() {
     pl.sitting = null;
     pl.model.position.x = q.x + Math.sin(q.face) * 0.55; pl.model.position.z = q.z + Math.cos(q.face) * 0.55;
 }
+// ENTDECKUNGEN: eine Liste von Dingen, die man im Tal tun kann. Was geschafft ist, wird abgehakt und im Browser gemerkt.
+const GOALS = [
+    ['bridge', 'Über die Brücke ans andere Ufer gehen'], ['fire', 'Am Lagerfeuer sitzen'], ['dog', 'Einen Hund streicheln'], ['fish', 'Einen Fisch angeln'],
+    ['boat', 'Mit dem Boot rudern'], ['ride', 'Auf dem Pferd galoppieren'], ['jeep', 'Mit dem Jeep bis ans Ende der Fahrspur fahren'], ['towel', 'Ein verwehtes Handtuch zurück an die Leine hängen'],
+    ['alp', 'Mit dem Hubschrauber auf der Alm landen'], ['roof', 'Auf einem Hausdach landen'], ['peak', 'Am Gipfelkreuz stehen'], ['aurora', 'Das Polarlicht sehen'], ['photo', 'Ein Foto machen']
+];
+const found = new Set();
+try { for (const id of JSON.parse(localStorage.getItem('handtuch-entdeckungen') ?? '[]')) if (GOALS.some((g) => g[0] === id)) found.add(id); } catch { /* ohne Speicher zählt nur diese Sitzung */ }
+function showGoals() {
+    document.getElementById('goalsLabel').textContent = `${found.size}/${GOALS.length}`;
+    document.getElementById('goals').innerHTML = '<h2>Entdeckungen</h2>' + GOALS.map(([id, text]) => `<div class="${found.has(id) ? 'done' : ''}">${text}</div>`).join('');
+}
+let toastT = 0;
+function earn(id) {
+    if (found.has(id)) return;
+    found.add(id);
+    try { localStorage.setItem('handtuch-entdeckungen', JSON.stringify([...found])); } catch { /* egal */ }
+    showGoals();
+    const el = document.getElementById('toast');
+    el.textContent = `✓ ${GOALS.find((g) => g[0] === id)[1]}  ·  ${found.size}/${GOALS.length}`; el.style.opacity = 1;
+    clearTimeout(toastT); toastT = setTimeout(() => { el.style.opacity = 0; }, 4200);
+    if (sound && !sound.muted) for (const [f, d] of [[660, 0], [880, 0.12], [1320, 0.24]]) { const o = sound.ctx.createOscillator(), g = sound.ctx.createGain(), t = sound.ctx.currentTime + d; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5); o.connect(g).connect(sound.master); o.start(t); o.stop(t + 0.55); } // kleiner Dreiklang
+}
+window.toggleGoals = () => { const el = document.getElementById('goals'); el.style.display = el.style.display === 'block' ? 'none' : 'block'; };
 // ANGELN: auf Steg oder Brücke mit F die Angel auswerfen; taucht der Schwimmer ab, schnell mit F einholen
 const gear = { rod: null, line: null, bob: null, caught: 0 };
 function createGear() {
@@ -2121,7 +2167,7 @@ function interact() {
         return;
     }
     if (pl.fishing) { // beim Biss einholen, sonst zusammenpacken
-        if (pl.fishing.biting) { gear.caught++; say(gear.caught === 1 ? 'Ein Fisch!' : `Noch ein Fisch! (${gear.caught})`, 3); if (sound) soundBurst('bandpass', 1200, 0.6, 0.1, 0.3, 0, 400); }
+        if (pl.fishing.biting) { earn('fish'); gear.caught++; say(gear.caught === 1 ? 'Ein Fisch!' : `Noch ein Fisch! (${gear.caught})`, 3); if (sound) soundBurst('bandpass', 1200, 0.6, 0.1, 0.3, 0, 400); }
         return stopFishing();
     }
     if (pl.heli) return leaveHeli();
@@ -2132,7 +2178,7 @@ function interact() {
         for (const a of [Math.PI / 2, -Math.PI / 2, Math.PI, 0]) { const x = c.x + Math.sin(c.heading + a) * 1.3, z = c.z + Math.cos(c.heading + a) * 1.3; if (walkable(x, z, Infinity)) { pl.model.position.x = x; pl.model.position.z = z; break; } }
         return;
     }
-    if (pl.towel && nearLine()) return carryTowel(null);
+    if (pl.towel && nearLine()) { if (pl.rescued) { pl.rescued = false; earn('towel'); } return carryTowel(null); }
     if (nearLost()) return pickUpLost();
     const t = !pl.towel && towelAt();
     if (t) return carryTowel(t);
@@ -2147,7 +2193,7 @@ function interact() {
     const horse = nearHorse();
     if (horse) { pl.horse = horse; horse.ridden = true; return; }
     const seat = nearSeat();
-    if (seat) { pl.sitting = seat; pl.heading = seat.face; return; }
+    if (seat) { pl.sitting = seat; pl.heading = seat.face; if ((seat.x - CAMP.x) ** 2 + (seat.z - CAMP.z) ** 2 < 16) earn('fire'); return; }
     if (canFish() && S.ice < 0.5) { startFishing(); if (pl.fishing) return; }
     // der Hund zuletzt: er läuft der Figur ständig nach und soll die anderen Dinge nicht verdecken
     const dog = nearDog();
@@ -2155,6 +2201,7 @@ function interact() {
         dog.state = 'idle'; dog.timer = 4;
         hello.c = dog; hello.until = clock.elapsedTime + 2;
         document.getElementById('hello').textContent = '♥';
+        earn('dog');
         if (sound && !sound.muted) bark(0.5, dog.def.h > 0.6 ? 300 : 430);
         return;
     }
@@ -2245,6 +2292,8 @@ function updatePlayer(dt) {
         for (const b of pl.blinkers) { b.mesh.morphTargetInfluences[b.l] = lid; b.mesh.morphTargetInfluences[b.r] = lid; }
 
         cam.target.set(p.x, p.y + 1.45, p.z);
+        if ((!pl.heli || heli.landed) && (p.x - PEAK.x) ** 2 + (p.z - PEAK.z) ** 2 < 64) earn('peak');
+        if (!pl.boat && !pl.heli && Math.abs(p.z - BRIDGE.z) < BRIDGE.half && p.x < BRIDGE.x0 + 1.5 && p.x > BRIDGE.x0 - 1 && p.y > heightAt(p.x, p.z) - 0.2) earn('bridge');
         // Schattenbereich wandert mit der Figur
         sun.target.position.copy(p);
         sun.position.add(p);
@@ -4699,7 +4748,8 @@ function animate() {
     su.uSunColor.value.copy(sunNow);
     su.uDay.value = lerp(0.16, 1, day);
     su.uNight.value = 1 - day;
-    su.uAurora.value = S.frost * (1 - day) * (1 - state.weather); // nur in klaren Winternächten
+    su.uAurora.value = S.frost * (1 - day) * (1 - state.weather);
+    if (su.uAurora.value > 0.6) earn('aurora'); // nur in klaren Winternächten
     su.uSunUp.value = smooth(-0.25, 0, sunY);
     su.uMoonDir.value.copy(moonDir);
     su.uMoonVis.value = smooth(-0.05, 0.12, -sunY) * (1 - day);
@@ -4827,6 +4877,7 @@ function animate() {
     composer.render();
     if (photo) { // gleich nach dem Zeichnen ist das Bild noch im Puffer
         photo = false;
+        earn('photo');
         renderer.domElement.toBlob((blob) => { const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `handtuch-${Date.now()}.png`; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 5000); });
     }
 }
