@@ -2979,8 +2979,8 @@ function voiced(shape, f0, f1, dur, gain, delay, bandHz, q, pan = 0, rasp = 0) {
 }
 function bark(gain, pitch) { // zwei, drei kurze Beller
     for (let k = 0, n = 1 + Math.floor(Math.random() * 3), t = 0; k < n; k++, t += 0.24 + Math.random() * 0.12) {
-        voiced('sawtooth', pitch * 1.25, pitch * 0.6, 0.13, gain, t, pitch * 2.2, 1.2);
-        soundBurst('bandpass', pitch * 3, 0.8, gain * 0.5, 0.09, t);
+        voiced('sawtooth', pitch * 1.25, pitch * 0.6, 0.17, gain, t, pitch * 1.8, 0.8);
+        soundBurst('bandpass', pitch * 3, 0.8, gain * 0.35, 0.11, t);
     }
 }
 function caw(gain) { // Krähe irgendwo über den Bäumen
@@ -3033,13 +3033,13 @@ function updateSound(dt, day, rainAmt) {
     }
     // ab und zu bellt ein Dorfhund, ab und zu krächzen Krähen
     if ((sound.dog = (sound.dog ?? 12) - dt) < 0) {
-        sound.dog = 14 + Math.random() * 40;
+        sound.dog = 10 + Math.random() * 30;
         const dogs = critters.filter((c) => c.def.follow), dog = dogs[Math.floor(Math.random() * dogs.length)];
-        if (dog) { const vol = 0.14 * smooth(150, 6, Math.hypot(pp.x - dog.x, pp.z - dog.z)); if (vol > 0.004) bark(vol, dog.def.h > 0.6 ? 300 : 430); }
+        if (dog) { const vol = 0.9 * smooth(150, 6, Math.hypot(pp.x - dog.x, pp.z - dog.z)); if (vol > 0.02) bark(vol, dog.def.h > 0.6 ? 300 : 430); }
     }
     if ((sound.crow = (sound.crow ?? 20) - dt) < 0) {
         sound.crow = 18 + Math.random() * 45;
-        if (day > 0.3) caw(0.035 + Math.random() * 0.035);
+        if (day > 0.3) caw(0.2 + Math.random() * 0.25);
     }
     if ((sound.bird -= dt) < 0) { // tagsüber zwitschert es, im Frühling am meisten
         sound.bird = (0.3 + Math.random() * 2.6) / (0.25 + mild);
