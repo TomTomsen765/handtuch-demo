@@ -38,6 +38,10 @@
         #credits p { margin: 8px 0 0; padding: 12px 14px; line-height: 1.6; letter-spacing: 0.3px; color: rgba(255,255,255,0.85);
             background: rgba(20, 28, 36, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 12px; text-shadow: none; }
         #credits a { color: #fff; }
+        #hello {
+            position: absolute; left: 0; top: 0; z-index: 9; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+            padding: 5px 11px; border-radius: 12px; background: rgba(255,255,255,0.92); color: #1b2530; font-size: 13px; white-space: nowrap;
+        }
         #loader {
             position: absolute; inset: 0; z-index: 20; background: #0b0f14;
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
@@ -58,6 +62,7 @@
     <button class="btn" onclick="window.toggleWeather()">E · Wetter <b id="weatherLabel">Heiter</b></button>
     <button class="btn" onclick="window.toggleTime()">T · Tageszeit <b id="todLabel">Tag 13:00</b></button>
 </div>
+<div id="hello"></div>
 <div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
@@ -384,6 +389,26 @@ for (const l of LOTS) {
     if (!lotHedged(l)) continue;
     for (const [ax, az, bx, bz] of [[-l.W, l.F, -l.W, -l.B], [l.W, l.F, l.W, -l.B], [-l.W, -l.B, l.W, -l.B]]) HEDGE_EDGES.push({ a: lotW(l, ax, az), b: lotW(l, bx, bz) });
 }
+// Trampelpfade zu den Häusern der zweiten Reihe: vom Weg (Stelle t) durch eine Lücke zwischen den Grundstücken hinaus (bis Abstand mid), dann zur Haustür
+const PATHS = [];
+{
+    const seen = new Set();
+    const seg = (a, b) => { const key = [a.x, a.z, b.x, b.z].map((v) => v.toFixed(1)).join(); if (!seen.has(key)) { seen.add(key); PATHS.push({ ax: a.x, az: a.z, bx: b.x, bz: b.z }); } };
+    for (const [file, t, mid] of [['wooden', 0.06, 23], ['rusty', 0.31, 20], ['oldrusty', 0.505, 20], ['woodhouse', 0.71, 20], ['treehut', 0.71, 20],
+        ['ahouse', 0.175, -24], ['oldhouse', 0.175, -24], ['windmill', 0.57, -22], ['annex', 0.745, -24], ['barn2', 0.745, -24]]) {
+        const b = BUILDINGS.find((k) => k.file === file), side = Math.sign(mid), turn = roadPoint(t, mid);
+        seg(roadPoint(t, side * 1.5), turn);
+        seg(turn, { x: b.x + Math.sin(b.face) * (b.r + 0.6), z: b.z + Math.cos(b.face) * (b.r + 0.6) });
+    }
+}
+const pathDist = (x, z) => {
+    let best = Infinity;
+    for (const q of PATHS) {
+        const bax = q.bx - q.ax, baz = q.bz - q.az, t = clamp01(((x - q.ax) * bax + (z - q.az) * baz) / (bax * bax + baz * baz));
+        best = Math.min(best, Math.hypot(x - q.ax - bax * t, z - q.az - baz * t));
+    }
+    return best;
+};
 const HEDGE = { h: 1.7, foot: 0.26, half: 0.36 }; // Höhe, Beginn des Laubs über dem Boden, halbe Dicke
 const hedgeUniforms = { uTime: { value: 0 }, uTurn: { value: 0 }, uWinter: { value: 0 } };
 const builtUp = (x, z) => inLot(x, z) || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r + 1) ** 2);
@@ -623,6 +648,7 @@ function createTerrain() {
         uTime: { value: 0 }, uCaustic: { value: 1 }, uWet: { value: 0 },
         uRoad: { value: ROAD.pts.map((q) => new THREE.Vector2(q.x, q.z)) },
         uRoadC: { value: new THREE.Vector3(ROAD.cx, ROAD.cz, ROAD.rad) },
+        uPath: { value: PATHS.map((q) => new THREE.Vector4(q.ax, q.az, q.bx, q.bz)) },
         uGrassTint: { value: new THREE.Color(1, 1, 1) },
         uSnowLine: { value: 135 },
         uWaterLevel: { value: WATER_LEVEL }
@@ -644,7 +670,7 @@ function createTerrain() {
             varying vec3 vWPos; varying vec3 vWN;
             uniform sampler2D tGrass; uniform sampler2D tRock; uniform sampler2D tSnow; uniform sampler2D tBed;
             uniform vec3 uGrassTint; uniform float uSnowLine; uniform float uWaterLevel;
-            uniform float uTime; uniform float uCaustic; uniform float uWet; uniform vec2 uRoad[25]; uniform vec3 uRoadC;
+            uniform float uTime; uniform float uCaustic; uniform float uWet; uniform vec2 uRoad[25]; uniform vec3 uRoadC; uniform vec4 uPath[${PATHS.length}];
             // Lichtnetz am Flussgrund (nach Dave Hoskins' "tileable water caustic")
             float caustic(vec2 uv, float t) {
                 vec2 p = mod(uv * 6.28318, 6.28318) - 250.0; vec2 i = p; float c = 1.0;
@@ -703,7 +729,14 @@ function createTerrain() {
                 // Regen: der Weg wird dunkel, in den Fahrspuren stehen Pfützen
                 earth *= 1.0 - 0.4 * uWet;
                 earth = mix(earth, vec3(0.34, 0.39, 0.44), uWet * smoothstep(0.5, 0.2, abs(rd - 0.85)) * smoothstep(0.5, 0.62, texture2D(tRock, tp * 0.11).r));
-                tcol = mix(tcol, earth, max(track * 0.92, yard));
+                // Trampelpfade: schmal, ohne Fahrspuren
+                float pd = 1e3;
+                for (int i = 0; i < ${PATHS.length}; i++) {
+                    vec2 pa = tp - uPath[i].xy, ba = uPath[i].zw - uPath[i].xy;
+                    pd = min(pd, length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0)));
+                }
+                float trail = smoothstep(1.1, 0.35, pd + rn * 0.9) * 0.85;
+                tcol = mix(tcol, earth, max(max(track * 0.92, yard), trail));
             }
 
             // Schnee: oberhalb der Schneegrenze, nicht an Steilwänden
@@ -1055,6 +1088,7 @@ function groundTexture() {
         else if (BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r - 0.4) ** 2)) grow = 0;
         else if (inLot(x, z, 0.1)) grow = 0.26;                                            // gemähter Rasen in den Gärten
         else if (Math.hypot(x - PEN.x, z - PEN.z) < PEN.r) grow = 0.3;                     // abgeweidet
+        if (grow > 0 && (x - ROAD.cx) ** 2 + (z - ROAD.cz) ** 2 < ROAD.rad ** 2) grow *= smooth(0.5, 1.4, pathDist(x, z)); // ausgetretene Pfade
         grow *= smooth(size * 0.49, size * 0.42, Math.max(Math.abs(x), Math.abs(z)));
         data[(j * N + i) * 2] = half(y); data[(j * N + i) * 2 + 1] = half(grow);
     }
@@ -2241,7 +2275,7 @@ function createLots(wood) {
 async function createVillage() {
     const loader = new GLTFLoader();
     const glow = []; // Fenster, die nachts leuchten
-    const fallLeaves = [], porches = [], mixers = []; // Herbstlaub auf dem Dach, Lampen an der Haustür
+    const fallLeaves = [], porches = [], mixers = [], mills = []; // Herbstlaub auf dem Dach, Lampen an der Haustür
     await Promise.all(BUILDINGS.map(async (b) => {
         let gltf;
         try { gltf = await loader.loadAsync(`village/${b.file}.glb`); }
@@ -2275,7 +2309,7 @@ async function createVillage() {
             if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); box.union(mb.copy(o.boundingBox).applyMatrix4(o.matrixWorld)); o.frustumCulled = false; }
             else box.expandByObject(o);
         });
-        if (gltf.animations.length) { const mx = new THREE.AnimationMixer(m); mx.clipAction(gltf.animations[0]).play(); mixers.push(mx); } // Mühlenflügel
+        if (gltf.animations.length) { const mx = new THREE.AnimationMixer(m); mx.clipAction(gltf.animations[0]).play(); mixers.push(mx); mills.push(mx); } // Mühlenflügel
         const sc = b.h / (box.max.y - box.min.y);
         m.scale.multiplyScalar(sc);
         // auf den Boden stellen, um die eigene Mitte drehen, Front zum Weg
@@ -2300,6 +2334,12 @@ async function createVillage() {
                 mat.userData.done = true;
                 if (b.own) { // bringt eigene Texturen mit; das Laub liegt nur im Herbst
                     mat.metalness = 0; mat.metalnessMap = null; mat.roughness = Math.max(mat.roughness, 0.8);
+                    mat.onBeforeCompile = (sh) => { // Schnee bleibt auf allem liegen, was nach oben zeigt
+                        sh.uniforms.uRoofSnow = roofSnow;
+                        sh.fragmentShader = 'uniform float uRoofSnow;\n' + sh.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+                            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.95, 1.0), uRoofSnow * smoothstep(0.45, 0.8, inverseTransformDirection(normal, viewMatrix).y));`);
+                    };
+                    mat.customProgramCacheKey = () => 'ownsnow';
                     if (mat.transparent) { mat.transparent = false; mat.alphaTest = 0.5; mat.depthWrite = true; fallLeaves.push(mat); }
                 }
                 else if (/window/i.test(mat.name + o.name)) { mat.emissive = new THREE.Color(0xffb45a); mat.emissiveIntensity = 0; glow.push(mat); }
@@ -2424,10 +2464,11 @@ async function createVillage() {
             obstacles.push({ x: boat.position.x, z, r: 1.2 });
         } catch (err) { console.warn('Modell fehlt:', file, err); }
     }));
-    village = { glow, lamps, cats, fallLeaves, boats };
+    village = { glow, lamps, cats, fallLeaves, boats, mills };
 }
 function updateVillage(day, dt) {
     if (!village) return;
+    for (const m of village.mills) m.timeScale = 0.3 + state.wind * 1.6; // die Mühle dreht mit dem Wind
     for (const m of village.cats) m.update(dt);
     const night = 1 - smooth(0.15, 0.6, day); // Lichter gehen in der Dämmerung an
     for (const m of village.glow) m.emissiveIntensity = night * 2.2;
@@ -2643,7 +2684,7 @@ async function createCritters() {
     const spawn = (def, model, clips, herdName) => {
         const herd = HERDS[herdName ?? def.herd];
         const c = { def, model, herd, mixer: null, idles: [], idle: 0, w: [1, 0, 0], state: 'idle', timer: 1 + rnd() * 8,
-            x: herd.x + (rnd() - 0.5) * 8, z: herd.z + (rnd() - 0.5) * 8, heading: rnd() * 6.28, tx: 0, tz: 0, stride: 0 };
+            human: /farmer|man\.glb|peasant/.test(def.file ?? ''), x: herd.x + (rnd() - 0.5) * 8, z: herd.z + (rnd() - 0.5) * 8, heading: rnd() * 6.28, tx: 0, tz: 0, stride: 0 };
         model.traverse((o) => {
             if (!o.isMesh) return;
             o.castShadow = !o.userData.noShadow; o.receiveShadow = true; o.frustumCulled = false;
@@ -2729,6 +2770,9 @@ function updateCritters(dt, time) {
             }
         }
         const dPlayer = Math.hypot(dxp, dzp);
+        // Dorfbewohner grüßen im Vorbeigehen – nicht jedes Mal und nie zwei zugleich
+        c.greet = (c.greet ?? 0) - dt;
+        if (c.human && dPlayer < 3.6 && c.greet < 0 && time > hello.until + 1.5) { c.greet = 30 + rnd() * 30; sayHello(c, time); }
         if (d.follow && dPlayer < 18 && dPlayer > 2.8) { // Hunde laufen dem Menschen nach
             c.state = dPlayer > 7 ? 'flee' : 'walk'; c.tx = pp.x; c.tz = pp.z;
         } else if (d.follow && dPlayer <= 2.8 && c.state !== 'idle') { c.state = 'idle'; c.timer = 2; }
@@ -2766,6 +2810,27 @@ function updateCritters(dt, time) {
             c.mixer.update(dt);
         } else animateProc(c, dt, time, dxp, dzp);
     }
+    // Sprechblase folgt dem Kopf der Figur
+    if (hello.c) {
+        const el = document.getElementById('hello'), c = hello.c;
+        tmpV.set(c.x, heightAt(c.x, c.z) + c.def.h + 0.3, c.z).project(camera);
+        const show = time < hello.until && tmpV.z < 1;
+        el.style.opacity = show ? 1 : 0;
+        if (show) el.style.transform = `translate(-50%, -100%) translate(${(tmpV.x * 0.5 + 0.5) * window.innerWidth}px, ${(-tmpV.y * 0.5 + 0.5) * window.innerHeight}px)`;
+        else if (time > hello.until + 0.4) hello.c = null;
+    }
+}
+const hello = { c: null, until: -10 };
+function sayHello(c, time) {
+    const text = ['Hallo!', 'Hallo!', 'Hallo!', 'Guten Tag!', 'Grüß dich!', 'Servus!'][Math.floor(rnd() * 6)];
+    hello.c = c; hello.until = time + 2.2;
+    document.getElementById('hello').textContent = text;
+    c.voice ??= /peasant/.test(c.def.file) ? 1.35 + rnd() * 0.4 : 0.6 + rnd() * 0.5; // jede Figur behält ihre Stimmlage
+    if (!sound || sound.muted || !window.speechSynthesis) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'de-DE'; u.pitch = c.voice; u.rate = 1.05; u.volume = 0.8;
+    u.voice = speechSynthesis.getVoices().find((v) => v.lang.startsWith('de')) ?? null;
+    speechSynthesis.speak(u);
 }
 
 /**
@@ -2872,12 +2937,15 @@ function startSound() {
         return { f, g };
     };
     sound = { ctx, master, buf, muted: false, river: bed('bandpass', 900, 0.5), wind: bed('lowpass', 400, 0.7), rain: bed('highpass', 2600, 0.5),
-        bird: 1, cricket: null, step: 0 };
-    // Grillen: hoher Ton, schnell an- und abgeschwollen
-    const osc = ctx.createOscillator(), lfo = ctx.createOscillator(), am = ctx.createGain(), cg = ctx.createGain();
-    osc.frequency.value = 4300; lfo.type = 'square'; lfo.frequency.value = 24; am.gain.value = 0; cg.gain.value = 0;
-    lfo.connect(am.gain); osc.connect(am).connect(cg).connect(master); osc.start(); lfo.start();
-    sound.cricket = cg;
+        bird: 1, crickets: [], step: 0 };
+    // Grillen: mehrere Tiere, jedes mit eigener Tonhöhe und eigenem Platz; gezirpt wird in updateSound in kurzen Dreierstößen
+    sound.crickets = Array.from({ length: 5 }, () => {
+        const osc = ctx.createOscillator(), g = ctx.createGain(), pan = ctx.createStereoPanner?.() ?? ctx.createGain();
+        osc.frequency.value = 3900 + Math.random() * 1300; g.gain.value = 0;
+        if (pan.pan) pan.pan.value = Math.random() * 2 - 1;
+        osc.connect(g).connect(pan).connect(master); osc.start();
+        return { g, next: 0, loud: 0.4 + Math.random() * 0.6, gap: 0.34 + Math.random() * 0.22 };
+    });
 }
 function soundBurst(type, freq, q, gain, dur, delay = 0, sweepTo = null) { // kurzer Rauschstoß: Schritt, Platscher, Donner
     if (!sound) return;
@@ -2886,6 +2954,38 @@ function soundBurst(type, freq, q, gain, dur, delay = 0, sweepTo = null) { // ku
     f.frequency.setValueAtTime(freq, t); if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + Math.min(0.05, dur * 0.2)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(f).connect(g).connect(sound.master); src.start(t, Math.random() * 2); src.stop(t + dur + 0.05);
+}
+function bell(delay, gain) { // Glockenschlag: unharmonische Teiltöne, die unterschiedlich schnell verklingen
+    const { ctx } = sound, t = ctx.currentTime + delay;
+    for (const [mul, amp, dur] of [[0.5, 0.5, 3.6], [1, 1, 2.8], [1.19, 0.6, 2.2], [1.5, 0.45, 1.8], [2, 0.35, 1.4], [2.51, 0.22, 1.0], [3.01, 0.12, 0.7]]) {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.value = 392 * mul;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain * amp, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g).connect(sound.master); o.start(t); o.stop(t + dur + 0.05);
+    }
+}
+function voiced(shape, f0, f1, dur, gain, delay, bandHz, q, pan = 0, rasp = 0) { // gleitender Ton durch ein Bandfilter: Bellen, Krächzen
+    const { ctx } = sound, t = ctx.currentTime + delay, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), p = ctx.createStereoPanner?.() ?? ctx.createGain();
+    o.type = shape; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    f.type = 'bandpass'; f.frequency.value = bandHz; f.Q.value = q;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    if (p.pan) p.pan.value = pan;
+    if (rasp) { // raue Stimme: schnelles An- und Abschwellen
+        const l = ctx.createOscillator(), lg = ctx.createGain();
+        l.type = 'square'; l.frequency.value = rasp; lg.gain.value = gain * 0.6;
+        l.connect(lg).connect(g.gain); l.start(t); l.stop(t + dur + 0.05);
+    }
+    o.connect(f).connect(g).connect(p).connect(sound.master); o.start(t); o.stop(t + dur + 0.05);
+}
+function bark(gain, pitch) { // zwei, drei kurze Beller
+    for (let k = 0, n = 1 + Math.floor(Math.random() * 3), t = 0; k < n; k++, t += 0.24 + Math.random() * 0.12) {
+        voiced('sawtooth', pitch * 1.25, pitch * 0.6, 0.13, gain, t, pitch * 2.2, 1.2);
+        soundBurst('bandpass', pitch * 3, 0.8, gain * 0.5, 0.09, t);
+    }
+}
+function caw(gain) { // Krähe irgendwo über den Bäumen
+    const pan = Math.random() * 2 - 1, f = 560 + Math.random() * 140;
+    for (let k = 0, n = 2 + Math.floor(Math.random() * 3), t = 0; k < n; k++, t += 0.4 + Math.random() * 0.12) voiced('sawtooth', f, f * 0.8, 0.3, gain, t, 1500, 2.2, pan, 55);
 }
 function chirp() { // Vogelruf: ein paar rasch gleitende Pfeiftöne
     const { ctx } = sound, pan = ctx.createStereoPanner?.() ?? ctx.createGain(), base = 2200 + Math.random() * 2600;
@@ -2910,7 +3010,37 @@ function updateSound(dt, day, rainAmt) {
     set(sound.wind.f.frequency, 260 + state.wind * 520);
     set(sound.rain.g.gain, rainAmt * 0.22);
     const mild = clamp01(1 - S.frost * 1.4) * (1 - state.weather);
-    set(sound.cricket.gain, 0.012 * (1 - smooth(0.05, 0.35, day)) * mild);
+    const chirr = 0.02 * (1 - smooth(0.05, 0.35, day)) * mild;
+    for (const cr of sound.crickets) { // ein Zirpen = drei weiche Pulse; dazwischen Pausen, mal setzt eine Grille länger aus
+        if (cr.next < now) cr.next = now + Math.random() * 0.5;
+        while (cr.next < now + 0.25) {
+            if (chirr > 0.0005) for (let k = 0; k < 3; k++) {
+                const t = cr.next + k * 0.032;
+                cr.g.gain.setValueAtTime(0, t); cr.g.gain.linearRampToValueAtTime(chirr * cr.loud, t + 0.009); cr.g.gain.linearRampToValueAtTime(0, t + 0.024);
+            }
+            cr.next += cr.gap * (0.9 + Math.random() * 0.2) + (Math.random() < 0.07 ? 1 + Math.random() * 4 : 0);
+        }
+    }
+    // Kirchenglocke: morgens, mittags und abends, lauter je näher man der Kirche ist
+    const hour = Math.floor(state.tod);
+    if (hour !== sound.hour) {
+        const first = sound.hour === undefined;
+        sound.hour = hour;
+        if (!first && params.todJump <= 0 && (hour === 6 || hour === 12 || hour === 18)) {
+            const ch = BUILDINGS.find((b) => b.file === 'church'), vol = 0.16 * smooth(170, 12, Math.hypot(pp.x - ch.x, pp.z - ch.z));
+            for (let k = 0; k < 5 && vol > 0.004; k++) bell(k * 1.5, vol);
+        }
+    }
+    // ab und zu bellt ein Dorfhund, ab und zu krächzen Krähen
+    if ((sound.dog = (sound.dog ?? 12) - dt) < 0) {
+        sound.dog = 14 + Math.random() * 40;
+        const dogs = critters.filter((c) => c.def.follow), dog = dogs[Math.floor(Math.random() * dogs.length)];
+        if (dog) { const vol = 0.14 * smooth(150, 6, Math.hypot(pp.x - dog.x, pp.z - dog.z)); if (vol > 0.004) bark(vol, dog.def.h > 0.6 ? 300 : 430); }
+    }
+    if ((sound.crow = (sound.crow ?? 20) - dt) < 0) {
+        sound.crow = 18 + Math.random() * 45;
+        if (day > 0.3) caw(0.035 + Math.random() * 0.035);
+    }
     if ((sound.bird -= dt) < 0) { // tagsüber zwitschert es, im Frühling am meisten
         sound.bird = (0.3 + Math.random() * 2.6) / (0.25 + mild);
         if (day > 0.35 && mild > 0.15 && Math.random() < 0.85) chirp();
