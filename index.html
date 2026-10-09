@@ -1141,19 +1141,17 @@ function towelAt(reach = 0.35) { // das Handtuch, vor dem die Figur steht
 function updateTowels(time) {
     const gust = 0.35 + state.wind * 0.9;
     const q = player ? lineLocal(player.model.position) : null;
+    const R = 0.3, lineY = heightAt(0, 0), headY = player ? player.model.position.y - lineY + 1.82 : 0; // Figur als Säule mit Radius R
     for (const t of towels) {
         t.mesh.visible = !t.taken;
         if (t.taken) continue;
-        // geht die Figur hindurch, schwingt das Tuch in Laufrichtung mit und fällt hinter ihr zurück
-        let want = 0;
-        if (q) {
-            const across = smooth(t.w / 2 + 0.45, t.w / 2 - 0.1, Math.abs(q.x - t.x)), close = smooth(0.95, 0.15, Math.abs(q.z));
-            if (close === 0 || t.lastZ === undefined) t.side = 0;
-            else if (!t.side && Math.abs(q.z - t.lastZ) > 1e-4) t.side = Math.sign(q.z - t.lastZ);
-            t.lastZ = q.z;
-            want = (t.side ?? 0) * across * close;
-        }
-        t.push = (t.push ?? 0) + (want - (t.push ?? 0)) * 0.12;
+        // Läuft die Figur gegen das Tuch, legt es sich an ihre Vorderseite: es spannt sich von der Leine zur Kopfkante und hängt davor herab.
+        // Je weiter sie geht, desto höher wird es gehoben, bis es über den Kopf rutscht und hinter ihr zurückfällt.
+        const reach = q && Math.abs(q.x - t.x) < t.w / 2 + R + 0.45 && Math.abs(q.z) < t.h + R + 0.2;
+        const touching = reach && t.side && t.side * (q.z + t.side * R) > 0 && Math.hypot(q.z + t.side * R, t.ropeY(q.x) - headY) < t.h;
+        if (q && !touching) t.side = -Math.sign(q.z) || 1; // die Seite, von der sie kommt, gilt bis zum Loslassen
+        if (touching) t.live = 1; else t.live = Math.max(0, (t.live ?? 0) - 0.03);
+        const ease = t.live > 0 ? 0.32 : 1; // nach dem Loslassen fällt das Tuch weich zurück statt zu springen
         const p = t.mesh.geometry.attributes.position;
         let i = 0;
         for (let j = 0; j <= t.sy; j++) {
@@ -1161,15 +1159,22 @@ function updateTowels(time) {
             const pin = v * v * (3 - 2 * v);
             for (let k = 0; k <= t.sx; k++, i++) {
                 const lx = (k / t.sx - 0.5) * t.w;
-                const x = t.x + lx;
-                const body = q ? smooth(0.75, 0.1, Math.abs(x - q.x)) : 0; // am stärksten dort, wo die Figur steht
-                const swing = gust * (0.22 + 0.16 * Math.sin(time * 1.25 + t.phase + lx * 0.6)) * v + t.push * (0.35 + 0.75 * body) * v;
+                const x = t.x + lx, top = t.ropeY(x);
+                const swing = gust * (0.22 + 0.16 * Math.sin(time * 1.25 + t.phase + lx * 0.6)) * v;
                 const ripple = (Math.sin(lx * 5.5 + time * 2.6 + t.phase) * 0.045
                               + Math.sin(lx * 11.0 - time * 3.7 + v * 6.0 + t.phase) * 0.016
                               + Math.sin(v * 9.0 - time * 3.1 + t.phase) * 0.02) * pin * (0.5 + gust);
-                p.setXYZ(i, x + Math.sin(time * 0.9 + t.phase + v * 2.0) * 0.02 * pin,
-                         t.ropeY(x) - Math.cos(swing) * v * t.h,
-                         Math.sin(swing) * v * t.h + ripple);
+                let px = x + Math.sin(time * 0.9 + t.phase + v * 2.0) * 0.02 * pin, py = top - Math.cos(swing) * v * t.h, pz = Math.sin(swing) * v * t.h + ripple;
+                if (reach) {
+                    const dx = Math.abs(x - q.x), w = smooth(R + 0.4, R * 0.85, dx); // neben der Figur läuft die Wölbung aus
+                    const front = q.z + t.side * Math.sqrt(Math.max(R * R - dx * dx, 0)), gap = top - headY, d = Math.hypot(front, gap), a = v * t.h;
+                    if (w > 0 && t.side * front > 0 && d < t.h && gap > 0.05) {
+                        const cz = a <= d ? front * a / d : front + t.side * 0.02, cy = a <= d ? top - gap * a / d : headY - (a - d);
+                        py += (cy - py) * w; pz += (cz + ripple * 0.3 - pz) * w;
+                    }
+                }
+                if (ease < 1) { px = p.getX(i) + (px - p.getX(i)) * ease; py = p.getY(i) + (py - p.getY(i)) * ease; pz = p.getZ(i) + (pz - p.getZ(i)) * ease; }
+                p.setXYZ(i, px, py, pz);
             }
         }
         p.needsUpdate = true;
@@ -1512,11 +1517,23 @@ async function createPlayer() {
             for (let i = 0; i < t.values.length; i += 4) {
                 q.fromArray(t.values, i).premultiply(parentInv).multiply(post).toArray(t.values, i);
             }
-            // Becken und Rücken drehen im Mixamo-Gang kräftig mit; am Avatar wirkt das wie Hüftwackeln, deshalb gedämpft
-            const calm = name === 'idle' ? 0 : bone.name === 'Hips' ? 0.7 : /^Spine/.test(bone.name) ? 0.55 : 0;
-            if (calm) for (let i = 0; i < t.values.length; i += 4) q.fromArray(t.values, i).slerp(bone.quaternion, calm).toArray(t.values, i);
         }
         clip.tracks = clip.tracks.filter((t) => bones[t.name.split('.')[0]]);
+        // Das Becken dreht im Mixamo-Gang kräftig mit; am Avatar wirkt das wie Hüftwackeln. Es wird gedämpft,
+        // Beine und Rücken bekommen die Differenz zurück, damit sie im Raum genauso schwingen wie vorher.
+        const hips = name !== 'idle' && bones.Hips && clip.tracks.find((t) => t.name === 'Hips.quaternion');
+        if (hips) {
+            const before = hips.values.slice(), fix = new THREE.Quaternion(), was = new THREE.Quaternion();
+            for (let i = 0; i < before.length; i += 4) q.fromArray(before, i).slerp(bones.Hips.quaternion, 0.6).toArray(hips.values, i);
+            for (const child of ['LeftUpLeg', 'RightUpLeg', 'Spine']) {
+                const t = clip.tracks.find((k) => k.name === child + '.quaternion');
+                if (!t || t.values.length !== before.length) continue;
+                for (let i = 0; i < before.length; i += 4) {
+                    fix.fromArray(hips.values, i).invert().multiply(was.fromArray(before, i));
+                    q.fromArray(t.values, i).premultiply(fix).toArray(t.values, i);
+                }
+            }
+        }
         return clip;
     };
     const mixer = new THREE.AnimationMixer(model);
