@@ -30,6 +30,14 @@
             color: rgba(255,255,255,0.6); font-size: 11px; pointer-events: none;
             text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
         }
+        #credits {
+            position: absolute; bottom: 44px; left: 20px; z-index: 10; max-width: 460px;
+            color: rgba(255,255,255,0.6); font-size: 11px; letter-spacing: 1px; text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+        }
+        #credits summary { cursor: pointer; text-transform: uppercase; }
+        #credits p { margin: 8px 0 0; padding: 12px 14px; line-height: 1.6; letter-spacing: 0.3px; color: rgba(255,255,255,0.85);
+            background: rgba(20, 28, 36, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 12px; text-shadow: none; }
+        #credits a { color: #fff; }
         #loader {
             position: absolute; inset: 0; z-index: 20; background: #0b0f14;
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
@@ -50,13 +58,29 @@
     <button class="btn" onclick="window.toggleWeather()">E · Wetter <b id="weatherLabel">Heiter</b></button>
     <button class="btn" onclick="window.toggleTime()">T · Tageszeit <b id="todLabel">Tag 13:00</b></button>
 </div>
-<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | 1–4: Jahreszeit direkt</div>
+<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
+
+<details id="credits">
+    <summary>Modelle &amp; Lizenzen</summary>
+    <p>
+        3D-Modelle von <a href="https://sketchfab.com" target="_blank" rel="noopener">sketchfab.com</a>, Lizenz <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, für die Szene verkleinert und angepasst:
+        „Autumn House“ von Zhenya ·
+        „Wooden house“, „Rusty roof house“, „Old rusty roof house“, „Wood House“, „Tree Hut“ und „a_house“ von iGauravRajput ·
+        „Old house“ von Tim0 · „Barn with one trim texture“ von korsun · „Проект пристройки“ von labarch ·
+        „Low Poly Church“ von Yanez-Designs · „Windmill Stylized“ von a_l_e_x_a_n_d_e_r ·
+        „Chicken – rigged“ von Maf'j Alvarez · „Lupe Goat“ von jackiebatteau · „Artia, the Walking Peasant“ von paolo.russo ·
+        „Wooden Boat“ von o0ozexo0o · „Boat“ von bumstrum · „Malpas Wooden Boat Wreck“ von artfletch.
+        Außerdem: „Cat“ von J-Toastie (CC BY 3.0, Poly Pizza), Dorf- und Tiermodelle von Quaternius (CC0), Texturen von Poly Haven (CC0), Bäume mit ez-tree.
+    </p>
+</details>
 
 <script type="importmap">
     {
         "imports": {
             "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+            "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+            "postprocessing": "https://cdn.jsdelivr.net/npm/postprocessing@6.39.5/build/index.js"
         }
     }
 </script>
@@ -310,6 +334,22 @@ function heightAt(x, z) {
 }
 // Gebäude stehen abwechselnd links und rechts am Weg: Stelle am Weg (t), Seite/Abstand (off), Zielhöhe, Platzbedarf
 const BUILDINGS = [
+    // "Autumn House" von Zhenya (sketchfab.com/zhenyarech), CC-BY 4.0 – aus dem Diorama bleiben Haus und Auto; crop: Ausschnitt im Modell, pads: Hindernisse entlang des Grundrisses
+    { file: 'autumnhouse', t: 0.07, off: -12, h: 6, r: 5.4, rot: -Math.PI / 2, own: true, crop: [-21, -0.5, -14.5, 14.6], car: [3.5, -7.2], porch: [-4.6, 9.6, 4.4], pads: [[0, -3.3], [0, 0], [0, 3.3]], padR: 3 },
+    // "Low Poly Church" von Yanez-Designs und "Windmill Stylized" von a_l_e_x_a_n_d_e_r (beide sketchfab.com, CC-BY 4.0)
+    { file: 'church', t: 0.41, off: 15, h: 12, r: 3, own: true, pads: [[-3.2, 0], [0, 0], [3.2, 0]], padR: 2.6 },
+    { file: 'windmill', t: 0.5, off: -34, h: 12, r: 2.6, rot: -Math.PI / 2, own: true, clear: 12 }, // clear: Lichtung, damit die Flügel frei drehen
+    // zweite Reihe hinter den Gärten, jeweils auf einer Lichtung (alle sketchfab.com, CC-BY 4.0; verkleinert mit gltf-transform):
+    // Holzhäuser und Baumhütte von iGauravRajput, "Old house" von Tim0, "Barn with one trim texture" von korsun, Anbau von labarch
+    { file: 'wooden', t: 0.12, off: 26, h: 5, r: 3.6, own: true, clear: 8 },
+    { file: 'rusty', t: 0.30, off: 31, h: 5, r: 3.6, own: true, clear: 8 },
+    { file: 'oldrusty', t: 0.52, off: 33, h: 5, r: 3.6, own: true, clear: 8 },
+    { file: 'woodhouse', t: 0.72, off: 29, h: 5.5, r: 3.6, own: true, clear: 8 },
+    { file: 'treehut', t: 0.93, off: 34, h: 7.5, r: 3.6, own: true, clear: 8 },
+    { file: 'ahouse', t: 0.05, off: -30, h: 6.5, r: 3.8, own: true, clear: 8 },
+    { file: 'oldhouse', t: 0.26, off: -50, h: 6, r: 4.5, own: true, clear: 9 },
+    { file: 'annex', t: 0.72, off: -46, h: 5, r: 4.5, own: true, clear: 9 },
+    { file: 'barn2', t: 0.88, off: -38, h: 4.6, r: 5, own: true, clear: 10 },
     { file: 'house1', t: 0.2, off: 10, h: 7.2, r: 4.2, rot: Math.PI },
     { file: 'house2', t: 0.29, off: -10, h: 5.6, r: 4.0, rot: Math.PI },
     { file: 'coop', t: 0.385, off: 7.5, h: 2.1, r: 1.5 },
@@ -364,7 +404,8 @@ let sun, hemi, skyMesh, water, terrainUniforms, grassUniforms, rain, snowfall, a
 const towels = [];
 const treeKinds = [];
 const treeSpots = [];
-let village = null;
+let village = null, envMap = null, appleMesh = null, sound = null;
+const roofSnow = { value: 0 };
 let player = null, fish = null, beaver = null, flowers = null, lilies = null, flyers = null, crayfish = null, shafts = null, godrays = null;
 const eagles = [];
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
@@ -412,7 +453,7 @@ async function init() {
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -420,7 +461,16 @@ async function init() {
     document.body.appendChild(renderer.domElement);
 
     composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
+    // Umgebungsverschattung: dunkelt Ecken und Kontaktstellen ab (Zaunfüße, Hauswände, zwischen Halmen)
+    let scenePass = new RenderPass(scene, camera);
+    try {
+        const { N8AOPass } = await import('https://cdn.jsdelivr.net/npm/n8ao@2.0.1/dist/N8AO.js');
+        const ao = new N8AOPass(scene, camera, window.innerWidth, window.innerHeight);
+        Object.assign(ao.configuration, { aoRadius: 1.3, distanceFalloff: 1.0, intensity: 2.4, halfRes: true, gammaCorrection: false });
+        ao.setQualityMode('Low');
+        scenePass = ao;
+    } catch (err) { console.warn('Umgebungsverschattung nicht verfügbar – Szene läuft ohne.', err); }
+    composer.addPass(scenePass);
     // Sonnenstrahlen: helle Himmelspixel werden von der Sonne weg verwischt, Bäume und Berge werfen Schattenbahnen
     godrays = new ShaderPass({
         uniforms: { tDiffuse: { value: null }, uSunPos: { value: new THREE.Vector2(0.5, 0.5) }, uStrength: { value: 0 } },
@@ -450,14 +500,15 @@ async function init() {
     scene.add(hemi);
     sun = new THREE.DirectionalLight(0xffffff, 3.5);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(3072, 3072);
     const sc = sun.shadow.camera;
-    sc.left = -45; sc.right = 45; sc.top = 45; sc.bottom = -45; sc.near = 1; sc.far = 400;
+    sc.left = -36; sc.right = 36; sc.top = 36; sc.bottom = -36; sc.near = 1; sc.far = 400; // enger um die Figur: schärfere Schatten
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.06;
     scene.add(sun, sun.target);
 
     createSky();
+    createEnvLight();
     createTerrain();
     createWater();
     createRocks();
@@ -486,6 +537,8 @@ async function init() {
         cam.dist = THREE.MathUtils.clamp(cam.dist * Math.exp(e.deltaY * 0.001), 1.6, 40);
     }, { passive: false });
 
+    // Ton darf der Browser erst nach der ersten Eingabe starten
+    for (const ev of ['pointerdown', 'keydown']) window.addEventListener(ev, startSound, { once: true });
     window.addEventListener('resize', onWindowResize);
     window.addEventListener('keydown', (e) => {
         if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -495,6 +548,7 @@ async function init() {
         if (e.code === 'KeyQ') window.toggleSeason();
         if (e.code === 'KeyE') window.toggleWeather();
         if (e.code === 'KeyT') window.toggleTime();
+        if (e.code === 'KeyM' && sound) { sound.muted = !sound.muted; sound.master.gain.setTargetAtTime(sound.muted ? 0 : 0.9, sound.ctx.currentTime, 0.1); }
         if (e.code === 'KeyZ') { params.todRun = !params.todRun; state.todText = ''; }
         if (e.key >= '1' && e.key <= '4') window.setSeason(Number(e.key) - 1);
     });
@@ -505,6 +559,7 @@ async function init() {
 
     await Promise.all([createTrees(), createPlayer(), createCritters(), createVillage()]);
     createShafts();
+    createUndergrowth();
     document.querySelector('#bar i').style.width = '100%';
     document.getElementById('loader').classList.add('done');
 }
@@ -524,6 +579,13 @@ function createSky() {
     skyMesh = new THREE.Mesh(new THREE.SphereGeometry(3000, 48, 24), skyMat);
     skyMesh.frustumCulled = false;
     scene.add(skyMesh);
+}
+
+function createEnvLight() {
+    const envScene = new THREE.Scene();
+    envScene.add(new THREE.Mesh(new THREE.SphereGeometry(100, 32, 16), skyMesh.material));
+    envMap = { pmrem: new THREE.PMREMGenerator(renderer), scene: envScene, rt: null, timer: 0 };
+    scene.environmentIntensity = 0.35;
 }
 
 function createTerrain() {
@@ -558,7 +620,7 @@ function createTerrain() {
         tRock: { value: loadTex(ASSETS.rock, '#77736c') },
         tSnow: { value: loadTex(ASSETS.snow, '#eef2f6') },
         tBed: { value: loadTex(ASSETS.riverbed, '#6d6558') },
-        uTime: { value: 0 }, uCaustic: { value: 1 },
+        uTime: { value: 0 }, uCaustic: { value: 1 }, uWet: { value: 0 },
         uRoad: { value: ROAD.pts.map((q) => new THREE.Vector2(q.x, q.z)) },
         uRoadC: { value: new THREE.Vector3(ROAD.cx, ROAD.cz, ROAD.rad) },
         uGrassTint: { value: new THREE.Color(1, 1, 1) },
@@ -582,7 +644,7 @@ function createTerrain() {
             varying vec3 vWPos; varying vec3 vWN;
             uniform sampler2D tGrass; uniform sampler2D tRock; uniform sampler2D tSnow; uniform sampler2D tBed;
             uniform vec3 uGrassTint; uniform float uSnowLine; uniform float uWaterLevel;
-            uniform float uTime; uniform float uCaustic; uniform vec2 uRoad[25]; uniform vec3 uRoadC;
+            uniform float uTime; uniform float uCaustic; uniform float uWet; uniform vec2 uRoad[25]; uniform vec3 uRoadC;
             // Lichtnetz am Flussgrund (nach Dave Hoskins' "tileable water caustic")
             float caustic(vec2 uv, float t) {
                 vec2 p = mod(uv * 6.28318, 6.28318) - 250.0; vec2 i = p; float c = 1.0;
@@ -638,6 +700,9 @@ function createTerrain() {
                 float yard = smoothstep(17.0, 6.0, rd + rn * 10.0) * 0.5;
                 vec3 earth = texture2D(tBed, tp * 0.3).rgb * vec3(0.78, 0.64, 0.5) * (0.75 + macro * 0.4);
                 earth *= 1.0 - 0.3 * smoothstep(0.4, 0.0, abs(rd - 0.85) + rn * 0.3);
+                // Regen: der Weg wird dunkel, in den Fahrspuren stehen Pfützen
+                earth *= 1.0 - 0.4 * uWet;
+                earth = mix(earth, vec3(0.34, 0.39, 0.44), uWet * smoothstep(0.5, 0.2, abs(rd - 0.85)) * smoothstep(0.5, 0.62, texture2D(tRock, tp * 0.11).r));
                 tcol = mix(tcol, earth, max(track * 0.92, yard));
             }
 
@@ -978,8 +1043,28 @@ function updateTowels(time) {
 /**
  * GRASHALME (instanziert, nur im Nahbereich)
  */
+// Bodenkarte für das Gras: Höhe und Wuchs (0 kein Gras … 1 Wiese) als Textur, damit die Halme im Shader mit der Figur mitwandern können
+const GROUND = { size: 320, N: 512 };
+function groundTexture() {
+    const { size, N } = GROUND, data = new Uint16Array(N * N * 2), half = THREE.DataUtils.toHalfFloat;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        const x = ((i + 0.5) / N - 0.5) * size, z = ((j + 0.5) / N - 0.5) * size, y = heightAt(x, z);
+        let grow = 1;
+        if (y < WATER_LEVEL + 0.2 || y > 16) grow = 0;                                    // Wasser, Kiessaum, Fels
+        else if (roadDist(x, z) < 2.0) grow = 0;                                           // Feldweg
+        else if (BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r - 0.4) ** 2)) grow = 0;
+        else if (inLot(x, z, 0.1)) grow = 0.26;                                            // gemähter Rasen in den Gärten
+        else if (Math.hypot(x - PEN.x, z - PEN.z) < PEN.r) grow = 0.3;                     // abgeweidet
+        grow *= smooth(size * 0.49, size * 0.42, Math.max(Math.abs(x), Math.abs(z)));
+        data[(j * N + i) * 2] = half(y); data[(j * N + i) * 2 + 1] = half(grow);
+    }
+    const tex = new THREE.DataTexture(data, N, N, THREE.RGFormat, THREE.HalfFloatType);
+    tex.magFilter = tex.minFilter = THREE.LinearFilter;
+    tex.needsUpdate = true;
+    return tex;
+}
+
 function createGrass() {
-    const COUNT = 320000, R = 48;
     const blade = new THREE.BufferGeometry();
     blade.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
         -0.5, 0, 0,  0.5, 0, 0,  -0.32, 0.5, 0,  0.32, 0.5, 0,  0, 1, 0
@@ -987,57 +1072,79 @@ function createGrass() {
     blade.setIndex([0, 1, 2, 2, 1, 3, 2, 3, 4]);
     blade.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0,1,0, 0,1,0, 0,1,0, 0,1,0, 0,1,0]), 3));
     grassUniforms = { uTime: { value: 0 }, uWind: { value: 0.5 }, uSnow: { value: 0 },
-        uTip: { value: new THREE.Color() }, uBase: { value: new THREE.Color() } };
-    const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.85 });
-    mat.onBeforeCompile = (shader) => {
-        Object.assign(shader.uniforms, grassUniforms);
-        shader.vertexShader = 'uniform float uTime; uniform float uWind; uniform float uSnow; varying float vBladeH; varying float vBladeRnd; varying vec2 vPatch;\n'
-            + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
-                vBladeH = position.y;
-                vec3 ip = instanceMatrix[3].xyz;
-                vBladeRnd = fract(sin(dot(ip.xz, vec2(12.9898, 78.233))) * 43758.5453);
-                // großflächige Farbinseln + feine Flecken, dazu neigt sich jeder Halm etwas anders
-                vPatch = vec2(sin(ip.x * 0.09 + sin(ip.z * 0.05) * 2.0) * sin(ip.z * 0.11 + ip.x * 0.04),
-                              sin(ip.x * 0.31 + 1.7) * sin(ip.z * 0.27 + sin(ip.x * 0.13)));
-                transformed.z += position.y * position.y * (0.03 + 0.16 * vBladeRnd);
-                transformed.y *= 1.0 - uSnow * (0.84 + 0.16 * vBladeRnd);
-                float gph = ip.x * 0.35 + ip.z * 0.28;
-                float bend = (sin(uTime * 1.6 + gph) * 0.5 + sin(uTime * 3.1 + gph * 2.3) * 0.2 + 0.35) * uWind;
-                transformed.x += bend * position.y * position.y * 2.2;
-                transformed.z += bend * position.y * position.y * 0.6;`);
-        shader.fragmentShader = 'uniform vec3 uTip; uniform vec3 uBase; uniform float uSnow; varying float vBladeH; varying float vBladeRnd; varying vec2 vPatch;\n'
-            + shader.fragmentShader
-                .replace('#include <map_fragment>', `vec3 gc = mix(uBase, uTip, vBladeH);
-                    gc = mix(gc, gc * vec3(1.4, 1.2, 0.5), smoothstep(0.05, 0.8, vPatch.x) * 0.75);   // sonnige, gelbgrüne Inseln
-                    gc = mix(gc, gc * vec3(0.55, 0.85, 0.75), smoothstep(0.05, 0.8, -vPatch.x) * 0.75); // satte, dunkle Inseln
-                    gc *= 0.85 + 0.3 * vPatch.y;
-                    gc = mix(gc, vec3(0.6, 0.52, 0.28), step(0.84, vBladeRnd) * smoothstep(0.25, 1.0, vBladeH) * 0.8); // einzelne trockene Halme
-                    diffuseColor.rgb = gc * (0.6 + 0.7 * fract(vBladeRnd * 7.0));
-                    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.95, 1.0), uSnow * smoothstep(0.35, 1.0, vBladeH) * 0.8);`)
-                .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize(vNormal);');
+        uTip: { value: new THREE.Color() }, uBase: { value: new THREE.Color() },
+        uGround: { value: groundTexture() }, uGroundSize: { value: GROUND.size }, uCenter: { value: new THREE.Vector2() } };
+    const grassMat = (wrap, field = 1) => {
+        const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.85 });
+        if (wrap) mat.defines = { GRASS_WRAP: '' };
+        mat.onBeforeCompile = (shader) => {
+            Object.assign(shader.uniforms, grassUniforms, { uField: { value: field } });
+            shader.vertexShader = `uniform float uTime; uniform float uWind; uniform float uSnow; varying float vBladeH; varying float vBladeRnd; varying vec2 vPatch;
+                uniform sampler2D uGround; uniform float uGroundSize; uniform float uField; uniform vec2 uCenter; vec3 gOff;\n`
+                + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+                    vBladeH = position.y;
+                    vec3 ip = instanceMatrix[3].xyz;
+                    gOff = vec3(0.0);
+                    #ifdef GRASS_WRAP
+                        // der Halm behält seinen festen Platz in der Welt, taucht aber immer im Feld um die Figur auf
+                        vec2 rel = mod(ip.xz - uCenter + uField * 0.5, uField) - uField * 0.5;
+                        vec2 wp = uCenter + rel;
+                        vec4 gm = texture2D(uGround, wp / uGroundSize + 0.5);
+                        float grow = gm.g * (1.0 - smoothstep(uField * 0.37, uField * 0.495, length(rel)));
+                        gOff = vec3(wp.x - ip.x, gm.r - 0.02 - ip.y, wp.y - ip.z);
+                        ip = vec3(wp.x, gm.r, wp.y);
+                        // Wiese wächst in Inseln unterschiedlich hoch
+                        transformed.y *= grow * (0.6 + 0.55 * (0.5 + 0.5 * sin(ip.x * 0.06 + sin(ip.z * 0.045) * 2.0) * sin(ip.z * 0.07 + 1.3)));
+                        transformed.xz *= step(0.02, grow);
+                    #endif
+                    vBladeRnd = fract(sin(dot(ip.xz, vec2(12.9898, 78.233))) * 43758.5453);
+                    // großflächige Farbinseln + feine Flecken, dazu neigt sich jeder Halm etwas anders
+                    vPatch = vec2(sin(ip.x * 0.09 + sin(ip.z * 0.05) * 2.0) * sin(ip.z * 0.11 + ip.x * 0.04),
+                                  sin(ip.x * 0.31 + 1.7) * sin(ip.z * 0.27 + sin(ip.x * 0.13)));
+                    transformed.z += position.y * position.y * (0.03 + 0.16 * vBladeRnd);
+                    transformed.y *= 1.0 - uSnow * (0.84 + 0.16 * vBladeRnd);
+                    float gph = ip.x * 0.35 + ip.z * 0.28;
+                    float bend = (sin(uTime * 1.6 + gph) * 0.5 + sin(uTime * 3.1 + gph * 2.3) * 0.2 + 0.35) * uWind;
+                    transformed.x += bend * position.y * position.y * 2.2;
+                    transformed.z += bend * position.y * position.y * 0.6;`)
+                .replace('#include <project_vertex>', `vec4 mvPosition = instanceMatrix * vec4(transformed, 1.0);
+                    mvPosition.xyz += gOff;
+                    mvPosition = modelViewMatrix * mvPosition;
+                    gl_Position = projectionMatrix * mvPosition;`)
+                .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
+                    #if defined( USE_ENVMAP ) || defined( DISTANCE ) || defined ( USE_SHADOWMAP ) || defined ( USE_TRANSMISSION ) || NUM_SPOT_LIGHT_COORDS > 0
+                        worldPosition.xyz += gOff;
+                    #endif`);
+            shader.fragmentShader = 'uniform vec3 uTip; uniform vec3 uBase; uniform float uSnow; varying float vBladeH; varying float vBladeRnd; varying vec2 vPatch;\n'
+                + shader.fragmentShader
+                    .replace('#include <map_fragment>', `vec3 gc = mix(uBase, uTip, vBladeH);
+                        gc = mix(gc, gc * vec3(1.4, 1.2, 0.5), smoothstep(0.05, 0.8, vPatch.x) * 0.75);   // sonnige, gelbgrüne Inseln
+                        gc = mix(gc, gc * vec3(0.55, 0.85, 0.75), smoothstep(0.05, 0.8, -vPatch.x) * 0.75); // satte, dunkle Inseln
+                        gc *= 0.85 + 0.3 * vPatch.y;
+                        gc = mix(gc, vec3(0.6, 0.52, 0.28), step(0.84, vBladeRnd) * smoothstep(0.25, 1.0, vBladeH) * 0.8); // einzelne trockene Halme
+                        diffuseColor.rgb = gc * (0.6 + 0.7 * fract(vBladeRnd * 7.0));
+                        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.95, 1.0), uSnow * smoothstep(0.35, 1.0, vBladeH) * 0.8);`)
+                    .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize(vNormal);');
+        };
+        mat.customProgramCacheKey = () => 'grass' + (wrap ? 'wrap' : '');
+        return mat;
     };
-    const mesh = new THREE.InstancedMesh(blade, mat, COUNT);
+    // Zwei Felder, die der Figur folgen: ein dichter Teppich in der Nähe, darum herum weniger, dafür breitere und höhere Halme
     const m = new THREE.Matrix4(), qt = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), p = new THREE.Vector3(), sc = new THREE.Vector3();
     let n = 0;
-    for (let i = 0; i < COUNT * 3 && n < COUNT; i++) {
-        const a = rand() * Math.PI * 2, r = Math.pow(rand(), 0.72) * R;
-        const x = Math.cos(a) * r, z = Math.sin(a) * r;
-        const gy = heightAt(x, z);
-        if (gy < WATER_LEVEL + 0.2) continue; // Gras wächst bis an den Kiessaum
-        if (roadDist(x, z) < 2.1 + 0.9 * noise2(x * 0.3, z * 0.3) || builtUp(x, z)) continue; // Weg und Häuser bleiben frei
-        const far = 1 + r / R * 1.6; // weiter weg: weniger, dafür breitere Halme
-        // Wiese wächst in Inseln unterschiedlich hoch, Halme unterschiedlich breit
-        const tall = 0.6 + 0.9 * smooth(-0.35, 0.5, noise2(x * 0.06, z * 0.06));
-        const hgt = (0.16 + rand() * rand() * 0.42) * (0.8 + 0.4 * far) * tall;
-        p.set(x, gy - 0.02, z);
-        m.compose(p, qt.setFromAxisAngle(up, rand() * Math.PI), sc.set((0.018 + rnd() * 0.034) * far, hgt, 1));
-        mesh.setMatrixAt(n++, m);
+    for (const [count, field, wide, tall] of [[230000, 40, 1, 1], [190000, 104, 2.3, 1.3]]) {
+        const mesh = new THREE.InstancedMesh(blade, grassMat(true, field), count);
+        for (let i = 0; i < count; i++) {
+            p.set((rnd() - 0.5) * field, 0, (rnd() - 0.5) * field);
+            m.compose(p, qt.setFromAxisAngle(up, rnd() * Math.PI), sc.set((0.022 + rnd() * 0.04) * wide, (0.2 + rnd() * rnd() * 0.55) * tall, 1));
+            mesh.setMatrixAt(i, m);
+        }
+        mesh.layers.set(NO_MIRROR);
+        mesh.receiveShadow = true;
+        mesh.frustumCulled = false;
+        scene.add(mesh);
     }
-    mesh.count = n;
-    mesh.layers.set(NO_MIRROR);
-    mesh.receiveShadow = true;
-    mesh.frustumCulled = false;
-    scene.add(mesh);
+    const mat = grassMat(false);
 
     // Schilfbüschel am Ufersaum
     const REEDS = 20000;
@@ -1097,7 +1204,7 @@ async function createTrees() {
             const a = rand() * Math.PI * 2, r = Math.sqrt(lerp(rMin * rMin, rMax * rMax, rand()));
             const x = Math.cos(a) * r, z = Math.sin(a) * r;
             if (Math.abs(x - riverX(z)) < 9 * riverW(z) + 2) continue;
-            if (roadDist(x, z) < ROAD.half + 1) continue;
+            if (roadDist(x, z) < ROAD.half + 1 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.clear ?? b.r + 1) ** 2)) continue;
             const y = heightAt(x, z);
             if (y > maxH || tooClose(x, z, 6)) continue;
             // Blick von der Startkamera auf die Wäscheleine frei halten
@@ -1340,11 +1447,18 @@ function updatePlayer(dt) {
 
     // nach unten schwenkt die Kamera über die Figur; nach oben bleibt sie hinten und hebt nur den Blick (Sternenhimmel)
     const orbit = Math.max(cam.pitch, -0.12), cp = Math.cos(orbit);
-    camera.position.set(
-        cam.target.x + Math.sin(cam.yaw) * cp * cam.dist,
-        cam.target.y + Math.sin(orbit) * cam.dist,
-        cam.target.z + Math.cos(cam.yaw) * cp * cam.dist
+    const place = (cd) => camera.position.set(
+        cam.target.x + Math.sin(cam.yaw) * cp * cd,
+        cam.target.y + Math.sin(orbit) * cd,
+        cam.target.z + Math.cos(cam.yaw) * cp * cd
     );
+    // Kamera rückt näher an die Figur, statt in ein Haus einzutauchen
+    const inHouse = (c) => BUILDINGS.some((b) => (b.x - c.x) ** 2 + (b.z - c.z) ** 2 < (b.r * 0.92) ** 2 && c.y < heightAt(b.x, b.z) + b.h * 0.95);
+    let cd = cam.dist;
+    place(cd);
+    for (let k = 0; k < 8 && inHouse(camera.position); k++) place(cd *= 0.78);
+    cam.eff = cd < (cam.eff ?? cd) ? cd : lerp(cam.eff ?? cd, cd, 1 - Math.exp(-dt * 3));
+    place(cam.eff);
     camera.position.y = Math.max(camera.position.y, heightAt(camera.position.x, camera.position.z) + 0.3, WATER_LEVEL + 0.3);
     camera.lookAt(tmpV.copy(cam.target).setY(cam.target.y + Math.tan(Math.max(orbit - cam.pitch, 0)) * cam.dist));
 }
@@ -1676,13 +1790,13 @@ function createFlowers() {
         Object.assign(shader.uniforms, uniforms);
         shader.vertexShader = 'uniform float uBloom;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed *= uBloom;');
     };
-    const COUNT = 4200;
+    const COUNT = 11000;
     const mesh = new THREE.InstancedMesh(head, mat, COUNT);
     const kinds = [0xffffff, 0xffffff, 0xf6d21f, 0xd9342b, 0x7f6fe0, 0xf2a3c7, 0x4f7fe8];
     const m = new THREE.Matrix4(), qt = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
     let n = 0;
-    for (let c = 0; c < 170 && n < COUNT; c++) {
-        const a0 = rnd() * Math.PI * 2, r0 = Math.pow(rnd(), 0.7) * 46;
+    for (let c = 0; c < 460 && n < COUNT; c++) {
+        const a0 = rnd() * Math.PI * 2, r0 = Math.pow(rnd(), 0.7) * 125;
         const cx = Math.cos(a0) * r0, cz = Math.sin(a0) * r0, spread = 1.2 + rnd() * 3.5;
         const kind = kinds[Math.floor(rnd() * kinds.length)], size = 0.03 + rnd() * 0.03;
         for (let i = 0; i < 26 && n < COUNT; i++) {
@@ -1868,11 +1982,11 @@ function texturize(mat, inv) {
     mat.roughness = 0.9; mat.metalness = 0;
     if (sf.roof) mat.defines = { ...mat.defines, TRI_ROOF: '' };
     mat.onBeforeCompile = (sh) => {
-        Object.assign(sh.uniforms, { uTriTex: { value: tex }, uTriM: { value: inv }, uTriS: { value: sf.scale } });
+        Object.assign(sh.uniforms, { uTriTex: { value: tex }, uTriM: { value: inv }, uTriS: { value: sf.scale }, uRoofSnow: roofSnow });
         sh.vertexShader = 'uniform mat4 uTriM; varying vec3 vTriP; varying vec3 vTriN;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
             vTriP = (uTriM * modelMatrix * vec4(transformed, 1.0)).xyz;
             vTriN = normalize(mat3(uTriM) * mat3(modelMatrix) * objectNormal);`);
-        sh.fragmentShader = 'uniform sampler2D uTriTex; uniform float uTriS; varying vec3 vTriP; varying vec3 vTriN;\n' + sh.fragmentShader.replace('#include <map_fragment>', `
+        sh.fragmentShader = 'uniform sampler2D uTriTex; uniform float uTriS; uniform float uRoofSnow; varying vec3 vTriP; varying vec3 vTriN;\n' + sh.fragmentShader.replace('#include <map_fragment>', `
             vec3 tn = normalize(vTriN);
             #ifdef TRI_ROOF
                 // Ziegelreihen laufen immer die Dachschräge hinunter
@@ -1882,9 +1996,83 @@ function texturize(mat, inv) {
                 vec3 tw = pow(abs(tn), vec3(6.0)); tw /= tw.x + tw.y + tw.z;
                 vec3 tri = texture2D(uTriTex, vTriP.zy * uTriS).rgb * tw.x + texture2D(uTriTex, vTriP.xz * uTriS).rgb * tw.y + texture2D(uTriTex, vTriP.xy * uTriS).rgb * tw.z;
             #endif
-            diffuseColor.rgb *= tri * 1.7;`);
+            diffuseColor.rgb *= tri * 1.7;
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.95, 1.0), uRoofSnow * smoothstep(0.3, 0.7, tn.y)); // Schnee bleibt auf Dächern und Simsen liegen`);
     };
     mat.customProgramCacheKey = () => 'tri' + (sf.roof ? 'roof' : '');
+}
+
+/**
+ * WALDBODEN: Farne, Pilze, Totholz und Baumstümpfe unter den Bäumen
+ */
+function createUndergrowth() {
+    const spots = treeSpots.filter((t) => Math.hypot(t.x, t.z) < 130);
+    if (!spots.length) return;
+    const free = (x, z) => heightAt(x, z) > WATER_LEVEL + 0.4 && roadDist(x, z) > 3 && !builtUp(x, z);
+    const near = (rMin, rMax) => { // Platz im Umkreis eines Baums
+        for (let k = 0; k < 8; k++) {
+            const t = spots[Math.floor(rnd() * spots.length)], a = rnd() * 6.28, r = rMin + rnd() * (rMax - rMin);
+            const x = t.x + Math.cos(a) * r, z = t.z + Math.sin(a) * r;
+            if (free(x, z)) return { x, z };
+        }
+        return null;
+    };
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
+    const put = (mesh, i, x, y, z, sx, sy, sz, ry, rx = 0, rz = 0) => mesh.setMatrixAt(i, m.compose(p.set(x, heightAt(x, z) + y, z), q.setFromEuler(e.set(rx, ry, rz, 'YXZ')), sc.set(sx, sy, sz)));
+
+    // Farn: elf Wedel, die bogenförmig nach außen fallen, jeder mit gefiederter Kante
+    const fp = [], fi = [];
+    for (let f = 0; f < 11; f++) {
+        const a = f / 11 * 6.28 + (f % 2) * 0.3, ca = Math.cos(a), sa = Math.sin(a), base = fp.length / 3;
+        for (let k = 0; k <= 6; k++) {
+            const t = k / 6, r = t * 0.75, y = Math.sin(t * 2.2) * 0.55 * (0.8 + 0.2 * (f % 3)), w = (0.015 + 0.1 * Math.sin(t * 3.14)) * (k % 2 ? 1 : 0.6);
+            fp.push(ca * r - sa * w, y, sa * r + ca * w, ca * r + sa * w, y, sa * r - ca * w);
+            if (k < 6) { const o = base + k * 2; fi.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); }
+        }
+    }
+    const fernGeo = new THREE.BufferGeometry();
+    fernGeo.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3));
+    fernGeo.setIndex(fi); fernGeo.computeVertexNormals();
+    const FERNS = 900, ferns = new THREE.InstancedMesh(fernGeo, new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.8 }), FERNS);
+    let n = 0;
+    for (let i = 0; i < FERNS; i++) {
+        const s0 = near(0.8, 5); if (!s0) continue;
+        const s = 0.45 + rnd() * 0.5;
+        put(ferns, n, s0.x, -0.03, s0.z, s, s * (0.8 + rnd() * 0.5), s, rnd() * 6.28);
+        ferns.setColorAt(n++, col.setHSL(0.27 + rnd() * 0.06, 0.6, 0.2 + rnd() * 0.12, THREE.SRGBColorSpace));
+    }
+    ferns.count = n;
+
+    // Pilze in kleinen Gruppen: Fliegenpilze, Steinpilze, helle Schwämmchen
+    const MUSH = 420, stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.35, 0.45, 1, 7).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: 0xe9e2d0, roughness: 0.8 }), MUSH);
+    const caps = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 12, 6, 0, 6.283, 0, 1.5708), new THREE.MeshStandardMaterial({ roughness: 0.5 }), MUSH);
+    const capCols = [0xc22a1c, 0x7a4a26, 0xd9c7a2, 0xb5622a];
+    n = 0;
+    for (let g = 0; g < 110 && n < MUSH; g++) {
+        const s0 = near(0.5, 2.8); if (!s0) continue;
+        const kind = capCols[Math.floor(rnd() * capCols.length)];
+        for (let k = 0, kn = 2 + Math.floor(rnd() * 4); k < kn && n < MUSH; k++) {
+            const x = s0.x + (rnd() - 0.5) * 0.7, z = s0.z + (rnd() - 0.5) * 0.7, h = 0.05 + rnd() * 0.11, w = h * (0.5 + rnd() * 0.5), lean = (rnd() - 0.5) * 0.3;
+            put(stems, n, x, -0.01, z, w * 0.3, h, w * 0.3, 0, lean);
+            put(caps, n, x, h * 0.92, z, w, w * 0.7, w, rnd() * 6, lean);
+            caps.setColorAt(n++, col.set(kind).offsetHSL(0, 0, (rnd() - 0.5) * 0.1));
+        }
+    }
+    stems.count = caps.count = n;
+
+    // Totholz: liegende Stämme und Stümpfe mit Rinde
+    const bark = treeKinds[0]?.barkMat ?? new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 1 });
+    const LOGS = 70, logs = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1.1, 1, 10), bark, LOGS);
+    n = 0;
+    for (let i = 0; i < LOGS; i++) {
+        const s0 = near(2, 9); if (!s0) continue;
+        const r = 0.12 + rnd() * 0.2;
+        if (i % 3 === 0) put(logs, n++, s0.x, 0.12, s0.z, r * 1.3, 0.3 + rnd() * 0.3, r * 1.3, rnd() * 6.28);                      // Stumpf
+        else put(logs, n++, s0.x, r * 0.75, s0.z, r, 2.2 + rnd() * 3.2, r, rnd() * 6.28, Math.PI / 2 + (rnd() - 0.5) * 0.12);      // liegender Stamm
+    }
+    logs.count = n;
+    for (const mesh of [ferns, stems, caps, logs]) { mesh.castShadow = mesh !== ferns; mesh.receiveShadow = true; mesh.frustumCulled = false; scene.add(mesh); }
+    ferns.layers.set(NO_MIRROR); stems.layers.set(NO_MIRROR); caps.layers.set(NO_MIRROR);
 }
 
 /**
@@ -1967,10 +2155,12 @@ function createLots(wood) {
         mesh.count = 0; mesh.castShadow = mesh.receiveShadow = true; mesh.frustumCulled = false;
         scene.add(mesh);
         // x/z in Weltkoordinaten, y über dem Boden; sx/sy/sz Größe, ry/rx Drehung
-        return (x, y, z, sx, sy, sz, ry = 0, rx = 0, color = 0xffffff) => {
+        const add = (x, y, z, sx, sy, sz, ry = 0, rx = 0, color = 0xffffff) => {
             dummy.position.set(x, heightAt(x, z) + y, z); dummy.scale.set(sx, sy, sz); dummy.rotation.set(rx, ry, 0, 'YXZ'); dummy.updateMatrix();
             mesh.setMatrixAt(mesh.count, dummy.matrix); mesh.setColorAt(mesh.count++, col.set(color));
         };
+        add.mesh = mesh;
+        return add;
     };
     const box = new THREE.BoxGeometry(1, 1, 1), cyl = new THREE.CylinderGeometry(1, 1, 1, 8), ico = new THREE.IcosahedronGeometry(1, 1);
     const hedgeTex = loadTex(ASSETS.grass, '#3d6a2c'); hedgeTex.repeat.set(1.5, 1.5);
@@ -1980,6 +2170,7 @@ function createLots(wood) {
     const blob = batch(ico, new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), 1400);
     const apple = batch(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshStandardMaterial({ roughness: 0.45 }), 80);
     const WHITE = 0xe9e3d2, SOIL = 0x3a2a1c, STONE = 0x9a958a;
+    appleMesh = apple.mesh;
     const blooms = [0xf2d33a, 0xe04a3a, 0xf4f1ea, 0xb06ad8, 0xf29ac0, 0x5a8fe8];
 
     for (const l of LOTS) {
@@ -1992,7 +2183,7 @@ function createLots(wood) {
             for (let i = 0, n = Math.ceil(len / 0.85); i <= n; i++) { const q = at(i / n); obstacles.push({ x: q.x, z: q.z, r: 0.5 }); }
             if (kind === 'hedge') { // das Laub kommt aus createHedges; hier der dunkle Kern und die Stämmchen am Fuß
                 const mid = at(0.5), hh = HEDGE.h - HEDGE.foot - 0.12;
-                hedge(mid.x, HEDGE.foot + hh / 2, mid.z, len, hh, HEDGE.half * 2 - 0.2, ry, 0, 0x1c2c12);
+                hedge(mid.x, HEDGE.foot + hh / 2, mid.z, len, hh, HEDGE.half * 2 - 0.2, ry, 0, 0x4a6e2c); // aus der Ferne trägt der Kern die Farbe
                 for (let i = 0, n = Math.round(len / 0.38); i <= n; i++) { const q = at(i / n); log(q.x + (rnd() - 0.5) * 0.08, 0.2, q.z + (rnd() - 0.5) * 0.08, 0.02 + rnd() * 0.012, 0.44, 0.02 + rnd() * 0.012); }
                 return;
             }
@@ -2050,17 +2241,53 @@ function createLots(wood) {
 async function createVillage() {
     const loader = new GLTFLoader();
     const glow = []; // Fenster, die nachts leuchten
+    const fallLeaves = [], porches = [], mixers = []; // Herbstlaub auf dem Dach, Lampen an der Haustür
     await Promise.all(BUILDINGS.map(async (b) => {
         let gltf;
         try { gltf = await loader.loadAsync(`village/${b.file}.glb`); }
         catch (err) { console.warn('Gebäude fehlt:', b.file, err); return; }
-        const m = gltf.scene, box = new THREE.Box3().setFromObject(m);
+        const m = gltf.scene;
+        // ältere Sketchfab-Exporte (Specular/Glossiness) kennt der Loader nicht mehr: Farbtextur von Hand zuweisen
+        for (const mj of gltf.parser.json.materials ?? []) {
+            const ix = mj.extensions?.KHR_materials_pbrSpecularGlossiness?.diffuseTexture?.index;
+            if (ix === undefined) continue;
+            const tex = await gltf.parser.getDependency('texture', ix);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            m.traverse((o) => { if (o.isMesh && o.material.name === mj.name) o.material.map = tex; });
+        }
+        let car = null;
+        if (b.crop) { // Diorama: Boden, Straße und Baum fallen weg, das Auto parkt nachher vor der Garage
+            m.updateMatrixWorld(true);
+            const bb = new THREE.Box3(), c = new THREE.Vector3(), out = [];
+            m.traverse((o) => {
+                if (!o.isMesh) return;
+                bb.setFromObject(o).getCenter(c);
+                if (/lambert17/.test(o.material.name)) car = o;
+                else if (/lambert1[58]/.test(o.material.name) || c.x < b.crop[0] || c.x > b.crop[1] || c.z < b.crop[2] || c.z > b.crop[3]) out.push(o);
+            });
+            car?.geometry.applyMatrix4(car.matrixWorld);
+            for (const o of [car, ...out]) o?.removeFromParent();
+        }
+        const box = new THREE.Box3(), mb = new THREE.Box3();
+        m.updateMatrixWorld(true);
+        m.traverse((o) => {
+            if (!o.isMesh) return;
+            if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); box.union(mb.copy(o.boundingBox).applyMatrix4(o.matrixWorld)); o.frustumCulled = false; }
+            else box.expandByObject(o);
+        });
+        if (gltf.animations.length) { const mx = new THREE.AnimationMixer(m); mx.clipAction(gltf.animations[0]).play(); mixers.push(mx); } // Mühlenflügel
         const sc = b.h / (box.max.y - box.min.y);
         m.scale.multiplyScalar(sc);
         // auf den Boden stellen, um die eigene Mitte drehen, Front zum Weg
         const holder = new THREE.Group();
         m.position.set(-(box.min.x + box.max.x) / 2 * sc, -box.min.y * sc, -(box.min.z + box.max.z) / 2 * sc);
         holder.add(m);
+        if (car) {
+            const cb = new THREE.Box3().setFromBufferAttribute(car.geometry.attributes.position), cc = cb.getCenter(new THREE.Vector3());
+            car.geometry.translate(-cc.x, -cb.min.y, -cc.z);
+            car.position.set(b.car[0], box.min.y, b.car[1]); car.rotation.set(0, Math.PI / 2, 0); car.scale.setScalar(0.75);
+            m.add(car);
+        }
         holder.position.set(b.x, heightAt(b.x, b.z) - 0.05, b.z);
         holder.rotation.y = b.face + (b.rot ?? 0);
         holder.updateMatrixWorld(true);
@@ -2071,12 +2298,18 @@ async function createVillage() {
             for (const mat of [].concat(o.material)) {
                 if (mat.userData.done) continue;
                 mat.userData.done = true;
-                if (/window/i.test(mat.name + o.name)) { mat.emissive = new THREE.Color(0xffb45a); mat.emissiveIntensity = 0; glow.push(mat); }
+                if (b.own) { // bringt eigene Texturen mit; das Laub liegt nur im Herbst
+                    mat.metalness = 0; mat.metalnessMap = null; mat.roughness = Math.max(mat.roughness, 0.8);
+                    if (mat.transparent) { mat.transparent = false; mat.alphaTest = 0.5; mat.depthWrite = true; fallLeaves.push(mat); }
+                }
+                else if (/window/i.test(mat.name + o.name)) { mat.emissive = new THREE.Color(0xffb45a); mat.emissiveIntensity = 0; glow.push(mat); }
                 else texturize(mat, inv);
             }
         });
         scene.add(holder);
-        obstacles.push({ x: b.x, z: b.z, r: b.r });
+        for (const [px, pz] of b.pads ?? [[0, 0]]) { const q = holder.localToWorld(new THREE.Vector3(px, 0, pz)); obstacles.push({ x: q.x, z: q.z, r: b.padR ?? b.r }); }
+        if (car) { const q = car.getWorldPosition(new THREE.Vector3()); obstacles.push({ x: q.x, z: q.z, r: 1.5 }); }
+        if (b.porch) porches.push(m.localToWorld(new THREE.Vector3(...b.porch)));
     }));
 
     const stone = new THREE.MeshStandardMaterial({ map: loadTex(PH('stacked_stone_wall', 'diff'), '#77736c'), roughness: 0.95 });
@@ -2126,40 +2359,84 @@ async function createVillage() {
         post.position.set(lp.x, y + 1.3, lp.z); post.castShadow = true;
         scene.add(l, post); return l;
     });
-    // Katzen sitzen vor den Häusern und am Brunnen ("Cat" von J-Toastie, CC-BY 3.0, via Poly Pizza)
+    for (const q of porches) {
+        const l = new THREE.PointLight(0xffb060, 0, 14, 1.8);
+        l.position.copy(q);
+        l.userData.bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+        l.userData.power = 10;
+        l.add(l.userData.bulb); scene.add(l); lamps.push(l);
+    }
+    // Katzen sitzen vor den Häusern und am Brunnen ("Cat" von J-Toastie, CC-BY 3.0, via Poly Pizza),
+    // Ziegen stehen am Stall ("Lupe Goat" von jackiebatteau, sketchfab.com, CC-BY 4.0)
     const cats = [];
-    try {
-        const gltf = await loader.loadAsync('village/cat.glb'), src = gltf.scene, box = new THREE.Box3(), mb = new THREE.Box3();
-        src.updateMatrixWorld(true);
-        src.traverse((o) => {
-            if (!o.isMesh) return;
-            if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); mb.copy(o.boundingBox); } else { o.geometry.computeBoundingBox(); mb.copy(o.geometry.boundingBox); }
-            box.union(mb.applyMatrix4(o.matrixWorld));
-        });
-        const sc0 = 0.4 / (box.max.y - box.min.y);
-        const fur = [0xffffff, 0xb9b9b9, 0xffd0a0, 0x6f6f6f, 0xffffff];
-        const spots = [roadPoint(0.45, 3.9), roadPoint(0.2, 5.2), roadPoint(0.46, -5.6), roadPoint(0.63, 5.6), roadPoint(0.8, -3.4)];
-        spots.forEach((sp, i) => {
-            const inner = SkeletonUtils.clone(src), cat = new THREE.Group();
-            inner.scale.multiplyScalar(sc0 * (0.9 + rnd() * 0.25));
-            inner.position.y = -box.min.y * sc0;
-            inner.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.material = o.material.clone(); o.material.color.set(fur[i]); } });
-            cat.add(inner);
-            cat.position.set(sp.x, heightAt(sp.x, sp.z), sp.z);
-            cat.rotation.y = sp.face + (rnd() - 0.5) * 1.6;
-            const mixer = new THREE.AnimationMixer(inner), act = mixer.clipAction(gltf.animations[0]);
-            act.play(); act.time = rnd() * 8;
-            scene.add(cat); cats.push(mixer);
-        });
-    } catch (err) { console.warn('Katzenmodell fehlt', err); }
-    village = { glow, lamps, cats };
+    const sitters = [
+        { file: 'cat', h: 0.4, fur: [0xffffff, 0xb9b9b9, 0xffd0a0, 0x6f6f6f, 0xffffff], spots: [roadPoint(0.45, 3.9), roadPoint(0.2, 5.2), roadPoint(0.46, -5.6), roadPoint(0.63, 5.6), roadPoint(0.8, -3.4)] },
+        { file: 'goat', h: 1.0, clip: 'Idle_Stage1_Lupe', fur: [0xffffff, 0xd8c8b4, 0xffffff], spots: [roadPoint(0.71, -5.2), roadPoint(0.735, -6.4), roadPoint(0.9, 5)] }
+    ];
+    await Promise.all(sitters.map(async (st) => {
+        try {
+            const gltf = await loader.loadAsync(`village/${st.file}.glb`), src = gltf.scene, box = new THREE.Box3(), mb = new THREE.Box3();
+            src.updateMatrixWorld(true);
+            src.traverse((o) => {
+                if (!o.isMesh) return;
+                if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); mb.copy(o.boundingBox); } else { o.geometry.computeBoundingBox(); mb.copy(o.geometry.boundingBox); }
+                box.union(mb.applyMatrix4(o.matrixWorld));
+            });
+            const sc0 = st.h / (box.max.y - box.min.y), clip = gltf.animations.find((k) => k.name === st.clip) ?? gltf.animations[0];
+            st.spots.forEach((sp, i) => {
+                const inner = SkeletonUtils.clone(src), cat = new THREE.Group();
+                inner.scale.multiplyScalar(sc0 * (0.9 + rnd() * 0.25));
+                inner.position.y = -box.min.y * sc0;
+                inner.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.material = o.material.clone(); o.material.color.set(st.fur[i]); o.material.metalness = 0; o.material.roughness = Math.max(o.material.roughness, 0.85); } });
+                cat.add(inner);
+                cat.position.set(sp.x, heightAt(sp.x, sp.z), sp.z);
+                cat.rotation.y = sp.face + (rnd() - 0.5) * 1.6;
+                const mixer = new THREE.AnimationMixer(inner), act = mixer.clipAction(clip);
+                act.play(); act.time = rnd() * 8;
+                scene.add(cat); cats.push(mixer);
+                if (st.h > 0.6) obstacles.push({ x: sp.x, z: sp.z, r: 0.7 });
+            });
+        } catch (err) { console.warn('Modell fehlt:', st.file, err); }
+    }));
+    cats.push(...mixers);
+    // Boote liegen am Ufer im Wasser ("Wooden Boat" von dadndan0091, "Boat" von bumstrum; sketchfab.com, CC-BY 4.0) – Stelle am Fluss (z), Abstand zur Flussmitte, Länge
+    // dazu ein altes Wrack, das flussab im Uferschlamm steckt ("Malpas Wooden Boat Wreck" von artfletch, sketchfab.com, CC-BY 4.0)
+    const boats = [];
+    await Promise.all([['boat1', 46, 1.5, 4.2], ['boat2', 15, -1.3, 3.6], ['wreck', -28, 6.2, 9, true]].map(async ([file, z, dx, len, aground]) => {
+        try {
+            const m = (await loader.loadAsync(`village/${file}.glb`)).scene, box = new THREE.Box3().setFromObject(m), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+            const sc = len / Math.max(size.x, size.z), boat = new THREE.Group();
+            m.scale.multiplyScalar(sc);
+            m.position.set(-c.x * sc, -box.min.y * sc, -c.z * sc);
+            m.traverse((o) => {
+                if (!o.isMesh) return;
+                o.castShadow = o.receiveShadow = true;
+                if (o.material.isMeshBasicMaterial) o.material = new THREE.MeshStandardMaterial({ map: o.material.map, roughness: 1 }); // Scan ohne Beleuchtung: soll Tag und Nacht mitmachen
+                if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
+                else { o.material.metalness = 0; o.material.roughness = Math.max(o.material.roughness, 0.8); }
+            });
+            boat.add(m);
+            if (aground) { const x = riverX(z) + dx; boat.position.set(x, heightAt(x, z) - size.y * sc * 0.45, z); scene.add(boat); obstacles.push({ x, z, r: len * 0.3 }); return; }
+            boat.position.set(riverX(z) + dx, WATER_LEVEL - size.y * sc * 0.3, z);
+            boat.rotation.y = Math.atan(riverSlope(z)) + (size.x > size.z ? Math.PI / 2 : 0); // Bug in Fließrichtung
+            boat.userData.y = boat.position.y;
+            scene.add(boat); boats.push(boat);
+            obstacles.push({ x: boat.position.x, z, r: 1.2 });
+        } catch (err) { console.warn('Modell fehlt:', file, err); }
+    }));
+    village = { glow, lamps, cats, fallLeaves, boats };
 }
 function updateVillage(day, dt) {
     if (!village) return;
     for (const m of village.cats) m.update(dt);
     const night = 1 - smooth(0.15, 0.6, day); // Lichter gehen in der Dämmerung an
     for (const m of village.glow) m.emissiveIntensity = night * 2.2;
-    for (const l of village.lamps) { l.intensity = night * 45; l.userData.bulb.material.color.setRGB(6 * night, 3.2 * night, 1.2 * night); }
+    for (const m of village.fallLeaves) m.visible = S.autumn > 0.3;
+    for (const b of village.boats) { // schaukeln leicht, im Eis liegen sie still
+        const t = clock.elapsedTime * 1.2 + b.position.z, calm = 1 - S.ice;
+        b.position.y = b.userData.y + Math.sin(t) * 0.025 * calm; b.rotation.z = Math.sin(t * 0.7) * 0.035 * calm;
+    }
+    for (const l of village.lamps) { l.intensity = night * (l.userData.power ?? 45); l.userData.bulb.material.color.setRGB(6 * night, 3.2 * night, 1.2 * night); }
 }
 
 /**
@@ -2174,6 +2451,7 @@ const HERDS = {
     // Dorf: Bewohner, Hunde und Katzen bleiben am Platz, das Vieh im Pferch
     village: { x: WELL.x, z: WELL.z, side: 1, fixed: true, pick: () => roadPoint(0.1 + rnd() * 0.88, (rnd() - 0.5) * 5) },
     pen: { x: PEN.x, z: PEN.z, side: 1, fixed: true, roam: 6 },
+    coop: Object.assign(lotW(LOTS[0], 0.5, -6.5), { side: 1, fixed: true, roam: 4.5 }), // Hühner scharren im Garten hinter dem ersten Haus
     wolf2: { x: -40, z: 14, side: -1, timer: 55 },
     hare: { x: 12, z: 20, side: 1, timer: 25 },
     hare2: { x: 30, z: -8, side: 1, timer: 35 }
@@ -2190,6 +2468,9 @@ const CRITTERS = [
     { file: 'village/shiba.glb', n: 1, h: 0.56, herd: 'village', idle: ['Idle', 'Idle_2', 'Idle_2_HeadLow'], walk: 'Walk', run: 'Gallop', vWalk: 1.3, vRun: 5.5, flee: 0, follow: true },
     { file: 'village/cow.glb', n: 2, h: 1.5, herd: 'pen', idle: ['Idle', 'Eating', 'Eating'], walk: 'Walk', run: 'Gallop', vWalk: 0.5, vRun: 0.5, flee: 0 },
     { file: 'village/donkey.glb', n: 1, h: 1.35, herd: 'pen', idle: ['Idle', 'Eating', 'Idle_2'], walk: 'Walk', run: 'Gallop', vWalk: 0.6, vRun: 0.6, flee: 0 },
+    // von sketchfab.com, CC-BY 4.0: "Chicken - rigged" von Maf'j Alvarez (blujay), "Artia, the Walking Peasant" von paolo.russo
+    { file: 'village/chicken.glb', n: 6, h: 0.42, herd: 'coop', idle: ['idle', 'pecking', 'pecking'], walk: 'walking', run: 'walking', vWalk: 0.35, vRun: 2.4, flee: 1.8, turn: Math.PI, colors: [0xffffff, 0x9a6a44, 0xe2c9a4, 0x4a4038, 0xc98a5a], tint: /white|buttermilk/ },
+    { file: 'village/peasant.glb', n: 2, h: 1.66, herd: 'village', idle: [], walk: 'mixamo.com', run: 'mixamo.com', vWalk: 0.93, vRun: 0.93, flee: 0, restless: true, inPlace: /^Hips/, tint: /Peasant/ },
     { file: 'village/horse.glb', n: 1, h: 1.95, herd: 'pen', idle: ['Idle', 'Eating', 'Idle_Headlow'], walk: 'Walk', run: 'Gallop', vWalk: 0.7, vRun: 0.7, flee: 0 }
 ];
 const critterOk = (x, z, side) => {
@@ -2363,14 +2644,20 @@ async function createCritters() {
         const herd = HERDS[herdName ?? def.herd];
         const c = { def, model, herd, mixer: null, idles: [], idle: 0, w: [1, 0, 0], state: 'idle', timer: 1 + rnd() * 8,
             x: herd.x + (rnd() - 0.5) * 8, z: herd.z + (rnd() - 0.5) * 8, heading: rnd() * 6.28, tx: 0, tz: 0, stride: 0 };
-        model.traverse((o) => { if (o.isMesh) { o.castShadow = !o.userData.noShadow; o.receiveShadow = true; o.frustumCulled = false; } });
+        model.traverse((o) => {
+            if (!o.isMesh) return;
+            o.castShadow = !o.userData.noShadow; o.receiveShadow = true; o.frustumCulled = false;
+            // Fell und Stoff glänzen nicht: sonst spiegeln glatte oder metallische Modellmaterialien den Himmel
+            for (const mat of [].concat(o.material)) if (mat.isMeshStandardMaterial) { mat.metalness = 0; mat.roughness = Math.max(mat.roughness, 0.85); }
+        });
         if (clips) {
             c.mixer = new THREE.AnimationMixer(model);
             // Clipnamen tragen je nach Modell ein Skelett-Präfix ("CharacterArmature|Walk")
             const clip = (name) => clips.find((k) => k.name === name) ?? clips.find((k) => k.name.endsWith('|' + name));
             const act = (name) => { const a = c.mixer.clipAction(clip(name)); a.play(); a.setEffectiveWeight(0); return a; };
             c.idles = def.idle.map(act); c.walk = act(def.walk); c.run = act(def.run);
-            c.walk.time = rnd(); c.idles[0].setEffectiveWeight(1);
+            c.walk.time = rnd(); c.idles[0]?.setEffectiveWeight(1);
+            if (def.restless) c.timer = 0;
         }
         scene.add(model);
         critters.push(c);
@@ -2382,6 +2669,17 @@ async function createCritters() {
         let gltf;
         try { gltf = await loader.loadAsync(def.file); }
         catch (err) { console.warn('Tiermodell fehlt:', def.file, err); return; }
+        // ältere Sketchfab-Exporte (Specular/Glossiness) kennt der Loader nicht mehr: Farbtextur von Hand zuweisen
+        for (const mj of gltf.parser.json.materials ?? []) {
+            const ix = mj.extensions?.KHR_materials_pbrSpecularGlossiness?.diffuseTexture?.index;
+            if (ix === undefined) continue;
+            const tex = await gltf.parser.getDependency('texture', ix);
+            tex.colorSpace = THREE.SRGBColorSpace;
+            gltf.scene.traverse((o) => { if (o.isMesh && o.material.name === mj.name) Object.assign(o.material, { map: tex, roughness: 0.9, metalness: 0 }); });
+        }
+        if (def.inPlace) for (const clip of gltf.animations) for (const t of clip.tracks) { // Gehzyklus auf der Stelle: der Vorschub der Hüfte kommt aus der Bewegung der Figur
+            if (t.name.endsWith('.position') && def.inPlace.test(t.name)) for (let i = 2; i < t.values.length; i += 3) t.values[i] = t.values[2];
+        }
         // auf Zielhöhe skalieren (die Modelle kommen in sehr unterschiedlichen Einheiten)
         const src = gltf.scene, box = new THREE.Box3(), mb = new THREE.Box3();
         src.updateMatrixWorld(true);
@@ -2396,10 +2694,11 @@ async function createCritters() {
         for (let i = 0; i < def.n; i++) {
             const inner = SkeletonUtils.clone(src), holder = new THREE.Group();
             inner.scale.multiplyScalar(scale * (i === 0 ? 1 : 0.88 + rnd() * 0.16));
+            if (def.turn) inner.rotation.y = def.turn; // Modell schaut nach hinten
             if (i > 0 && (def.tint || def.colors)) inner.traverse((o) => { // gleiche Figur, andere Kleidung bzw. Fellfarbe
                 if (!o.isMesh) return;
                 o.material = o.material.clone();
-                if (def.colors) o.material.color.set(def.colors[i % def.colors.length]);
+                if (def.colors) { if (!def.tint || def.tint.test(o.material.name)) o.material.color.set(def.colors[i % def.colors.length]); }
                 else if (def.tint.test(o.material.name)) o.material.color.offsetHSL(rnd(), 0.15, 0.04);
             });
             holder.add(inner);
@@ -2442,7 +2741,7 @@ function updateCritters(dt, time) {
         } else {
             const dx = c.tx - c.x, dz = c.tz - c.z, dist = Math.hypot(dx, dz), run = c.state === 'flee';
             if (dist < 0.7) {
-                c.state = 'idle'; c.timer = 4 + rnd() * 12;
+                c.state = 'idle'; c.timer = d.restless ? 0 : 4 + rnd() * 12; // die Bäuerinnen sind immer unterwegs
                 if (c.idles.length) c.idle = Math.floor(rnd() * c.idles.length);
             } else {
                 let turn = Math.atan2(dx, dz) - c.heading;
@@ -2462,7 +2761,8 @@ function updateCritters(dt, time) {
         c.model.rotation.y = c.heading;
         if (c.mixer) {
             c.idles.forEach((a, i) => a.setEffectiveWeight(a.getEffectiveWeight() + ((i === c.idle ? c.w[0] : 0) - a.getEffectiveWeight()) * k));
-            c.walk.setEffectiveWeight(c.w[1]); c.run.setEffectiveWeight(c.w[2]);
+            if (c.run === c.walk) c.walk.setEffectiveWeight(d.restless ? 1 : c.w[1] + c.w[2]); // kein eigener Laufzyklus
+            else { c.walk.setEffectiveWeight(c.w[1]); c.run.setEffectiveWeight(c.w[2]); }
             c.mixer.update(dt);
         } else animateProc(c, dt, time, dxp, dzp);
     }
@@ -2552,7 +2852,81 @@ function updateRain(dt, opacity, slant) {
     rain.geometry.attributes.position.needsUpdate = true;
 }
 
+/**
+ * TON: alles im Browser erzeugt (Rauschen + Sinustöne), keine Audiodateien
+ */
+function startSound() {
+    if (sound) return;
+    const AC = window.AudioContext ?? window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC(), master = ctx.createGain();
+    master.gain.value = 0.9; master.connect(ctx.destination);
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 3, ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    // Dauerrauschen durch ein Filter: Fluss, Wind, Regen
+    const bed = (type, freq, q) => {
+        const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+        src.buffer = buf; src.loop = true; src.playbackRate.value = 0.8 + Math.random() * 0.4;
+        f.type = type; f.frequency.value = freq; f.Q.value = q; g.gain.value = 0;
+        src.connect(f).connect(g).connect(master); src.start();
+        return { f, g };
+    };
+    sound = { ctx, master, buf, muted: false, river: bed('bandpass', 900, 0.5), wind: bed('lowpass', 400, 0.7), rain: bed('highpass', 2600, 0.5),
+        bird: 1, cricket: null, step: 0 };
+    // Grillen: hoher Ton, schnell an- und abgeschwollen
+    const osc = ctx.createOscillator(), lfo = ctx.createOscillator(), am = ctx.createGain(), cg = ctx.createGain();
+    osc.frequency.value = 4300; lfo.type = 'square'; lfo.frequency.value = 24; am.gain.value = 0; cg.gain.value = 0;
+    lfo.connect(am.gain); osc.connect(am).connect(cg).connect(master); osc.start(); lfo.start();
+    sound.cricket = cg;
+}
+function soundBurst(type, freq, q, gain, dur, delay = 0, sweepTo = null) { // kurzer Rauschstoß: Schritt, Platscher, Donner
+    if (!sound) return;
+    const { ctx } = sound, t = ctx.currentTime + delay, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = sound.buf; f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(freq, t); if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + Math.min(0.05, dur * 0.2)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(sound.master); src.start(t, Math.random() * 2); src.stop(t + dur + 0.05);
+}
+function chirp() { // Vogelruf: ein paar rasch gleitende Pfeiftöne
+    const { ctx } = sound, pan = ctx.createStereoPanner?.() ?? ctx.createGain(), base = 2200 + Math.random() * 2600;
+    if (pan.pan) pan.pan.value = Math.random() * 2 - 1;
+    pan.connect(sound.master);
+    let t = ctx.currentTime + 0.02;
+    for (let k = 0, kn = 2 + Math.floor(Math.random() * 5); k < kn; k++) {
+        const o = ctx.createOscillator(), g = ctx.createGain(), len = 0.05 + Math.random() * 0.12, f0 = base * (0.85 + Math.random() * 0.4);
+        o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * (0.75 + Math.random() * 0.7), t + len);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.02 + Math.random() * 0.025, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        o.connect(g).connect(pan); o.start(t); o.stop(t + len + 0.02);
+        t += len + 0.03 + Math.random() * 0.09;
+    }
+}
+function updateSound(dt, day, rainAmt) {
+    if (!sound) return;
+    const { ctx } = sound, now = ctx.currentTime, pp = player ? player.model.position : START;
+    const set = (param, v) => param.setTargetAtTime(v, now, 0.25);
+    const dRiver = Math.abs(pp.x - riverX(pp.z)) / riverW(pp.z);
+    set(sound.river.g.gain, 0.085 * smooth(38, 3, dRiver) * (1 - S.ice * 0.75));
+    set(sound.wind.g.gain, 0.05 + state.wind * 0.11);
+    set(sound.wind.f.frequency, 260 + state.wind * 520);
+    set(sound.rain.g.gain, rainAmt * 0.22);
+    const mild = clamp01(1 - S.frost * 1.4) * (1 - state.weather);
+    set(sound.cricket.gain, 0.012 * (1 - smooth(0.05, 0.35, day)) * mild);
+    if ((sound.bird -= dt) < 0) { // tagsüber zwitschert es, im Frühling am meisten
+        sound.bird = (0.3 + Math.random() * 2.6) / (0.25 + mild);
+        if (day > 0.35 && mild > 0.15 && Math.random() < 0.85) chirp();
+    }
+    if (player && player.moving > 0.5) { // Schritte im Takt des Tempos, im Wasser ein Platschen
+        sound.step -= dt * (1.9 + player.running * 1.6);
+        if (sound.step < 0) {
+            sound.step = 1;
+            if (pp.y < WATER_LEVEL - 0.03) soundBurst('bandpass', 1400, 0.6, 0.12, 0.28, 0, 500);
+            else soundBurst('bandpass', roadDist(pp.x, pp.z) < 2.2 ? 520 : 1100, 0.9, 0.05 + player.running * 0.03, 0.1);
+        }
+    }
+}
+
 function spawnLightning() {
+    soundBurst('lowpass', 240, 0.4, 0.9, 2.6, 0.25 + Math.random() * 1.4, 45); // Donner rollt nach
     const points = [];
     const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, r = 60 + Math.random() * 120;
     const curr = new THREE.Vector3(Math.cos(a) * r, 150, Math.sin(a) * r);
@@ -2655,7 +3029,16 @@ function animate() {
     sun.intensity = useMoon ? 1.1 * (1 - gloom * 0.8) * smooth(0.02, 0.25, -sunY) : S.sunInt * (1 - gloom * 0.88) * smooth(-0.02, 0.2, sunY);
     hemi.color.copy(S.hemiSky).lerp(tmpColor.set(0xb9c2cc), w * 0.7).lerp(tmpColor.set(0x4a64a0), 1 - day).lerp(tmpColor.set(0xffb080), dusk * 0.3);
     hemi.groundColor.copy(S.hemiGround).lerp(tmpColor.set(0x1a2436), 1 - day);
-    hemi.intensity = S.hemiInt * (1 - gloom * 0.25) * lerp(0.42, 1, day) + state.flash * 5;
+    hemi.intensity = S.hemiInt * 0.85 * (1 - gloom * 0.25) * lerp(0.42, 1, day) + state.flash * 5;
+    // Himmel als Lichtquelle: Dächer, Blätter und Wasserflächen spiegeln ihn; alle paar Sekunden neu aufgenommen
+    if (envMap && (envMap.timer -= dt) < 0) {
+        envMap.timer = params.todJump > 0 ? 0.4 : 5;
+        const rt = envMap.pmrem.fromScene(envMap.scene, 0, 1, 500);
+        envMap.rt?.dispose(); envMap.rt = rt;
+        scene.environment = rt.texture;
+    }
+    roofSnow.value = S.frost;
+    if (appleMesh) appleMesh.visible = S.leafAmt > 0.3;
 
     // Boden + Wasser
     terrainUniforms.uGrassTint.value.copy(S.grassTint).multiplyScalar(1 - state.wet * 0.18);
@@ -2670,10 +3053,12 @@ function animate() {
     wu.uClock.value = time;
     wu.uLight.value = clamp01(0.04 + sun.intensity / 3.6 * 0.8 + hemi.intensity * 0.16);
     terrainUniforms.uTime.value = time;
+    terrainUniforms.uWet.value = state.wet * (1 - S.frost);
     terrainUniforms.uCaustic.value = clamp01(sun.intensity / 3.6) * (1 - S.ice);
     fish.uniforms.uWaterCol.value.copy(wu.waterColor.value).multiplyScalar(wu.uLight.value);
 
     grassUniforms.uTime.value = time;
+    grassUniforms.uCenter.value.set(cam.target.x, cam.target.z);
     grassUniforms.uWind.value = 0.05 + state.wind * 0.16;
     grassUniforms.uSnow.value = S.frost;
     grassUniforms.uTip.value.set(0x5f8a2e).multiply(S.grassTint).multiplyScalar(1 - state.wet * 0.15);
@@ -2705,6 +3090,7 @@ function animate() {
     updateFlyers(dt, time, clamp01(1 - S.frost * 2 - w * 1.2) * (1 - 0.6 * S.autumn) * day);
     flyers.birds.mesh.visible = day > 0.25; // nachts schlafen die Vögel
     updateVillage(day, dt);
+    updateSound(dt, day, w * (1 - S.snowiness));
     hedgeUniforms.uTime.value = time * (1 + w);
     hedgeUniforms.uTurn.value = S.autumn;
     hedgeUniforms.uWinter.value = S.frost;
