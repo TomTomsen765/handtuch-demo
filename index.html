@@ -81,7 +81,7 @@
 <div id="hello"></div>
 <div id="stick"><i></i></div>
 <div id="hint" onclick="window.interact()"></div>
-<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Hund | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
+<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Hund, Hinsetzen | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
     <summary>Modelle &amp; Lizenzen</summary>
@@ -482,6 +482,8 @@ const ripples = Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -100, 0)
 let rippleIdx = 0;
 const addRipple = (x, z, strength = 1) => ripples[rippleIdx++ % ripples.length].set(x, z, clock.elapsedTime, strength);
 const riverSlope = (z) => 0.15 * Math.cos(z * 0.03) + 0.033 * Math.cos(z * 0.011 + 1.3) + 0.142 * Math.cos(z * 0.071 - 0.9); // d riverX / dz
+const seats = []; // Sitzplätze: { x, z, face (Blickrichtung), h (Sitzhöhe) }
+let nightNow = 0; // 0 Tag … 1 Nacht, für das Dorfleben
 const decks = []; // begehbare Stege und Brücken: { x0, x1, z0, z1, y } oder mit yAt(x) für einen Bogen; low: Boote kommen nicht darunter durch
 const onDeck = (x, z) => decks.find((d) => x > d.x0 && x < d.x1 && z > d.z0 && z < d.z1);
 const deckY = (x, z) => { const d = onDeck(x, z); return d ? (d.yAt ? d.yAt(x) : d.y) : -Infinity; };
@@ -1582,7 +1584,7 @@ async function createPlayer() {
     model.position.set(START.x, heightAt(START.x, START.z), START.z);
     model.rotation.y = heading;
     scene.add(model);
-    player = { model, mixer, idle, walk, run, blinkers, heading, moving: 0, running: 0, blink: 2 };
+    player = { model, mixer, idle, walk, run, blinkers, heading, moving: 0, running: 0, blink: 2, bones };
 }
 
 const WALK_SPEED = 1.5, RUN_SPEED = 4.2;
@@ -1643,6 +1645,31 @@ function carryTowel(t) {
     pl.towel = { t, mesh };
 }
 const nearLine = () => { if (!player) return false; const q = lineLocal(player.model.position); return Math.abs(q.x) < 3.4 && Math.abs(q.z) < 1.6; };
+// Hinsetzen: Oberschenkel nach vorn, Unterschenkel nach unten – nach der Animation direkt an den Knochen gestellt,
+// unabhängig davon, wie deren Achsen im Modell liegen
+const sitV = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()], sitQ = [new THREE.Quaternion(), new THREE.Quaternion(), new THREE.Quaternion()];
+function aimBone(bone, child, target) {
+    bone.updateWorldMatrix(true, false); child.updateWorldMatrix(true, false);
+    const from = sitV[0].setFromMatrixPosition(child.matrixWorld).sub(sitV[1].setFromMatrixPosition(bone.matrixWorld)).normalize();
+    const turn = sitQ[0].setFromUnitVectors(from, target), world = bone.getWorldQuaternion(sitQ[1]), parent = bone.parent.getWorldQuaternion(sitQ[2]);
+    bone.quaternion.copy(parent.invert().multiply(turn.multiply(world)));
+}
+function applySit(pl) {
+    const b = pl.bones, sh = Math.sin(pl.heading), ch = Math.cos(pl.heading);
+    for (const [side, sp] of [['Left', 1], ['Right', -1]]) {
+        const thigh = b[side + 'UpLeg'], shin = b[side + 'Leg'], foot = b[side + 'Foot'];
+        if (!thigh || !shin || !foot) return;
+        aimBone(thigh, shin, sitV[2].set(sh + ch * 0.12 * sp, 0.06, ch - sh * 0.12 * sp).normalize());
+        aimBone(shin, foot, sitV[2].set(sh * 0.12, -1, ch * 0.12).normalize());
+    }
+}
+const nearSeat = () => { const p = player?.model.position; return p && !player.boat ? seats.find((q) => (q.x - p.x) ** 2 + (q.z - p.z) ** 2 < 1.5 ** 2) ?? null : null; };
+function standUp() {
+    const pl = player, q = pl.sitting;
+    if (!q) return;
+    pl.sitting = null;
+    pl.model.position.x = q.x + Math.sin(q.face) * 0.55; pl.model.position.z = q.z + Math.cos(q.face) * 0.55;
+}
 const nearDog = () => { const p = player?.model.position; return p && !player.boat ? critters.find((c) => c.def.follow && (c.x - p.x) ** 2 + (c.z - p.z) ** 2 < 1.9 ** 2) ?? null : null; };
 function nearBoat() {
     if (!player || !village) return null;
@@ -1659,6 +1686,7 @@ function interact() {
         }
         return;
     }
+    if (pl.sitting) return standUp();
     const dog = nearDog();
     if (dog) { // streicheln: der Hund setzt sich kurz und bellt freudig
         dog.state = 'idle'; dog.timer = 4;
@@ -1671,17 +1699,21 @@ function interact() {
     const t = !pl.towel && towelAt();
     if (t) return carryTowel(t);
     const b = nearBoat();
-    if (b && S.ice < 0.5) { pl.boat = b; b.userData.speed = 0; }
+    if (b && S.ice < 0.5) { pl.boat = b; b.userData.speed = 0; return; }
+    const seat = nearSeat();
+    if (seat) { pl.sitting = seat; pl.heading = seat.face; }
 }
 window.interact = interact;
 function updateHint() {
     const el = document.getElementById('hint'), key = touch.used ? 'Tippen' : 'F';
     let text = '';
     if (player?.boat) text = `${key}: Aussteigen (am Ufer)`;
+    else if (player?.sitting) text = `${key}: Aufstehen`;
     else if (nearDog()) text = `${key}: Hund streicheln`;
     else if (player?.towel && nearLine()) text = `${key}: Handtuch aufhängen`;
     else if (!player?.towel && towelAt()) text = `${key}: Handtuch abnehmen`;
     else if (nearBoat()) text = S.ice < 0.5 ? `${key}: Ins Boot steigen` : 'Der Fluss ist zugefroren';
+    else if (nearSeat()) text = `${key}: Hinsetzen`;
     if (text !== el.textContent) { el.textContent = text; el.style.display = text ? 'block' : 'none'; }
 }
 
@@ -1694,9 +1726,11 @@ function updatePlayer(dt) {
 
     if (player) {
         const pl = player, p = pl.model.position;
-        pl.moving += ((wantsMove && !pl.boat ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
+        pl.moving += ((wantsMove && !pl.boat && !pl.sitting ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
         pl.running += ((wantsRun ? 1 : 0) - pl.running) * (1 - Math.exp(-dt * 6));
+        if (pl.sitting && wantsMove) standUp(); // loslaufen heißt aufstehen
         if (pl.boat) rowBoat(pl, fwd, side, dt);
+        else if (pl.sitting) { p.x = pl.sitting.x; p.z = pl.sitting.z; }
         else if (wantsMove) {
             // Blickrichtung der Kamera auf dem Boden: vorwärts (-sin, -cos), rechts (cos, -sin)
             const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
@@ -1719,6 +1753,9 @@ function updatePlayer(dt) {
         pl.walk.setEffectiveWeight(pl.moving * (1 - pl.running));
         pl.run.setEffectiveWeight(pl.moving * pl.running);
         pl.mixer.update(dt);
+        // sitzend rutscht die Hüfte auf Sitzhöhe, die Beine werden angewinkelt
+        pl.sit = (pl.sit ?? 0) + ((pl.sitting ? 1 : 0) - (pl.sit ?? 0)) * (1 - Math.exp(-dt * 7));
+        if (pl.sitting) { pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95; p.y += (pl.sitting.h + 0.1 - pl.hipH) * pl.sit; applySit(pl); }
 
         pl.blink -= dt;
         if (pl.blink < -0.14) pl.blink = 1.5 + Math.random() * 4;
@@ -2609,6 +2646,7 @@ function createLots(wood) {
         // Bank neben der Tür
         { const bx = l.i % 2 ? -2.6 : 2.6, s = P(bx, 4.15), bk = P(bx, 3.93);
           timber(s.x, 0.45, s.z, 1.4, 0.06, 0.42, face); timber(bk.x, 0.78, bk.z, 1.4, 0.36, 0.05, face);
+          seats.push({ x: s.x, z: s.z, face, h: 0.5 });
           for (const ex of [-0.6, 0.6]) { const q = P(bx + ex, 4.15); timber(q.x, 0.22, q.z, 0.07, 0.44, 0.38, face); } }
         // Gemüsebeete hinter dem Haus: Kohlköpfe und Möhrengrün in Reihen
         const side = lotSide(l);
@@ -2921,7 +2959,7 @@ async function createVillage() {
         const tent = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ color: 0xb7a36e, roughness: 0.95, side: THREE.DoubleSide }));
         tent.position.set(-2.6, 0, -1.2); tent.rotation.y = 1.15; tent.castShadow = tent.receiveShadow = true;
         camp.add(tent);
-        for (const [lx, lz, ry] of [[1.3, 0.9, 0.9], [0.2, -1.7, -0.2]]) { const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 1.5, 9).rotateZ(Math.PI / 2), wood); seat.position.set(lx, 0.16, lz); seat.rotation.y = ry; seat.castShadow = seat.receiveShadow = true; camp.add(seat); obstacles.push({ x: x + lx, z: z + lz, r: 0.55 }); }
+        for (const [lx, lz, ry] of [[1.3, 0.9, 0.9], [0.2, -1.7, -0.2]]) { const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 1.5, 9).rotateZ(Math.PI / 2), wood); seat.position.set(lx, 0.16, lz); seat.rotation.y = ry; seat.castShadow = seat.receiveShadow = true; camp.add(seat); seats.push({ x: x + lx, z: z + lz, face: Math.atan2(-lx, -lz), h: 0.35 }); }
         scene.add(camp);
         obstacles.push({ x, z, r: 0.75 }, { x: x - 2.6, z: z - 1.2, r: 1.2 });
         chimneys.push(new THREE.Vector3(x, y + 0.9, z)); // der Rauch des Feuers nutzt dieselben Schwaden wie die Schornsteine
@@ -3300,6 +3338,19 @@ function updateCritters(dt, time) {
                 c.state = 'flee'; c.tx = tx; c.tz = tz;
                 if (!h.fixed) { h.x = tx; h.z = tz; h.timer = 60; }
                 break;
+            }
+        }
+        if (c.human) { // nachts gehen die Dorfbewohner ins nächste Haus, morgens kommen sie wieder heraus
+            if (nightNow > 0.65 && !c.home) {
+                const hb = BUILDINGS.filter((k) => /house/.test(k.file) && roadDist(k.x, k.z) < 16).sort((a, b) => (a.x - c.x) ** 2 + (a.z - c.z) ** 2 - (b.x - c.x) ** 2 - (b.z - c.z) ** 2)[0];
+                c.home = { x: hb.x + Math.sin(hb.face) * (hb.r + 2.2), z: hb.z + Math.cos(hb.face) * (hb.r + 2.2), t: 40 };
+            } else if (nightNow < 0.35 && c.home) { c.home = null; c.model.visible = true; c.state = 'idle'; c.timer = rnd() * 6; }
+            if (c.home) {
+                c.home.t -= dt;
+                if (c.model.visible && ((c.x - c.home.x) ** 2 + (c.z - c.home.z) ** 2 < 2.5 ** 2 || c.home.t < 0)) c.model.visible = false; // an der Tür angekommen
+                if (!c.model.visible) continue;
+                if (c.state === 'idle') { c.state = 'walk'; c.timer = 9; }
+                c.tx = c.home.x; c.tz = c.home.z;
             }
         }
         const dPlayer = Math.hypot(dxp, dzp);
@@ -3804,6 +3855,7 @@ function animate() {
     updateDucks(dt, time);
     updateRainbow(day);
     updateHint();
+    nightNow = 1 - smooth(0.15, 0.6, day);
     updateCritters(dt, time);
     updateFlyers(dt, time, clamp01(1 - S.frost * 2 - w * 1.2) * (1 - 0.6 * S.autumn) * day);
     flyers.birds.mesh.visible = day > 0.25; // nachts schlafen die Vögel
