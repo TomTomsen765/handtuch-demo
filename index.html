@@ -81,7 +81,7 @@
 <div id="hello"></div>
 <div id="stick"><i></i></div>
 <div id="hint" onclick="window.interact()"></div>
-<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
+<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Hund | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
     <summary>Modelle &amp; Lizenzen</summary>
@@ -476,8 +476,11 @@ const ripples = Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -100, 0)
 let rippleIdx = 0;
 const addRipple = (x, z, strength = 1) => ripples[rippleIdx++ % ripples.length].set(x, z, clock.elapsedTime, strength);
 const riverSlope = (z) => 0.15 * Math.cos(z * 0.03) + 0.033 * Math.cos(z * 0.011 + 1.3) + 0.142 * Math.cos(z * 0.071 - 0.9); // d riverX / dz
-const decks = []; // begehbare Stege: { x0, x1, z0, z1, y }
+const decks = []; // begehbare Stege und Brücken: { x0, x1, z0, z1, y } oder mit yAt(x) für einen Bogen; low: Boote kommen nicht darunter durch
 const onDeck = (x, z) => decks.find((d) => x > d.x0 && x < d.x1 && z > d.z0 && z < d.z1);
+const deckY = (x, z) => { const d = onDeck(x, z); return d ? (d.yAt ? d.yAt(x) : d.y) : -Infinity; };
+// Bogenbrücke über den Fluss, flussab der Wäscheleine
+const BRIDGE = { z: -13, x0: -22, x1: -8, half: 0.8, rise: 1.5 };
 const obstacles = []; // { x, z, r } – Pfosten der Wäscheleine
 const keys = new Set();
 const touch = { fwd: 0, side: 0, run: false, stick: null, used: false }; // Steuerknüppel auf Touch-Geräten
@@ -570,6 +573,7 @@ async function init() {
     scene.add(sun, sun.target);
 
     createSky();
+    createRainbow();
     createEnvLight();
     createTerrain();
     createWater();
@@ -669,6 +673,32 @@ async function init() {
     createWheat();
     document.querySelector('#bar i').style.width = '100%';
     document.getElementById('loader').classList.add('done');
+}
+
+// Regenbogen: erscheint der Sonne gegenüber, wenn es nach dem Regen aufklart und der Boden noch nass ist
+let rainbow = null;
+function createRainbow() {
+    rainbow = new THREE.Mesh(new THREE.RingGeometry(58, 64, 96, 1, 0, Math.PI), new THREE.ShaderMaterial({
+        uniforms: { uAmt: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        vertexShader: 'varying float vR; void main() { vR = (length(position.xy) - 58.0) / 6.0; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `uniform float uAmt; varying float vR;
+            void main() {
+                vec3 c = clamp(abs(mod((1.0 - vR) * 4.6 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); // Farbkreis von Violett innen bis Rot außen
+                gl_FragColor = vec4(c, sin(vR * 3.14159) * uAmt * 0.33);
+            }`
+    }));
+    rainbow.frustumCulled = false; rainbow.renderOrder = 2; rainbow.layers.set(NO_MIRROR);
+    scene.add(rainbow);
+}
+function updateRainbow(day) {
+    const amt = clamp01(state.wet * 1.4) * (1 - smooth(0.08, 0.4, state.weather)) * smooth(0.3, 0.6, day) * (1 - S.snowiness);
+    rainbow.visible = amt > 0.01;
+    if (!rainbow.visible) return;
+    rainbow.material.uniforms.uAmt.value = amt;
+    const l = Math.hypot(lightDir.x, lightDir.z) || 1; // der Bogen steht immer der Sonne gegenüber und wandert mit der Kamera mit
+    // nah genug, dass er vor den Bergen steht, aber hinter Dorf und Bäumen
+    rainbow.position.set(camera.position.x - lightDir.x / l * 125, -16, camera.position.z - lightDir.z / l * 125);
+    rainbow.lookAt(camera.position.x, -16, camera.position.z);
 }
 
 function createSky() {
@@ -1193,7 +1223,8 @@ function groundTexture() {
         const x = ((i + 0.5) / N - 0.5) * size, z = ((j + 0.5) / N - 0.5) * size, y = heightAt(x, z);
         let grow = 1;
         if (y < WATER_LEVEL + 0.2 || y > 16) grow = 0;                                    // Wasser, Kiessaum, Fels
-        else if (roadDist(x, z) < 2.0 || inField(x, z, 0.3)) grow = 0;                                           // Feldweg
+        else if (roadDist(x, z) < 2.0 || inField(x, z, 0.3)) grow = 0;
+        else if (x > BRIDGE.x0 - 0.5 && x < BRIDGE.x1 + 0.5 && Math.abs(z - BRIDGE.z) < BRIDGE.half + 0.3) grow = 0; // unter der Brücke                                           // Feldweg
         else if (BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r - 0.4) ** 2)) grow = 0;
         else if (inLot(x, z, 0.1)) grow = 0.26;                                            // gemähter Rasen in den Gärten
         else if (Math.hypot(x - PEN.x, z - PEN.z) < PEN.r) grow = 0.3;                     // abgeweidet
@@ -1550,7 +1581,8 @@ async function createPlayer() {
 
 const WALK_SPEED = 1.5, RUN_SPEED = 4.2;
 function walkable(x, z, fromY) {
-    if (onDeck(x, z)) return true;
+    const dk = deckY(x, z);
+    if (dk > -Infinity && (fromY === Infinity || Math.abs(dk - fromY) < 0.5)) return true; // nur auf gleicher Höhe betritt man Steg oder Brücke, nicht von unten
     const y = heightAt(x, z);
     if (y < WATER_LEVEL - 0.45) return false;            // höchstens knietief ins Wasser
     if (y - fromY > 0.12 || Math.hypot(x, z) > 420) return false; // keine Steilwände hoch
@@ -1568,7 +1600,7 @@ function rowBoat(pl, fwd, side, dt) {
     u.heading -= side * dt * 0.9 * (0.35 + Math.min(1, Math.abs(u.speed)));
     const sx = Math.sin(u.heading), sz = Math.cos(u.heading), dir = Math.sign(u.speed) || 1;
     // genug Wasser unter dem Kiel und kein Hindernis – geprüft an Bootsmitte und Bug
-    const afloat = (x, z) => heightAt(x, z) < WATER_LEVEL - 0.3 && !onDeck(x, z) && !obstacles.some((o) => o !== u.ob && (o.x - x) ** 2 + (o.z - z) ** 2 < o.r * o.r);
+    const afloat = (x, z) => heightAt(x, z) < WATER_LEVEL - 0.3 && !onDeck(x, z)?.low && !obstacles.some((o) => o !== u.ob && (o.x - x) ** 2 + (o.z - z) ** 2 < o.r * o.r);
     const nx = b.position.x + sx * u.speed * dt, nz = b.position.z + sz * u.speed * dt;
     if (afloat(nx, nz) && afloat(nx + sx * dir * 1.3, nz + sz * dir * 1.3)) { b.position.x = nx; b.position.z = nz; }
     else { // Ufer oder Stein voraus: das Boot dreht von selbst zur freien Seite ab, sonst prallt es sanft zurück
@@ -1605,6 +1637,7 @@ function carryTowel(t) {
     pl.towel = { t, mesh };
 }
 const nearLine = () => { if (!player) return false; const q = lineLocal(player.model.position); return Math.abs(q.x) < 3.4 && Math.abs(q.z) < 1.6; };
+const nearDog = () => { const p = player?.model.position; return p && !player.boat ? critters.find((c) => c.def.follow && (c.x - p.x) ** 2 + (c.z - p.z) ** 2 < 1.9 ** 2) ?? null : null; };
 function nearBoat() {
     if (!player || !village) return null;
     const p = player.model.position;
@@ -1616,8 +1649,16 @@ function interact() {
     if (pl.boat) { // aussteigen: nächste begehbare Stelle am Ufer oder auf dem Steg
         for (const r of [1.5, 2.1, 2.7, 3.3]) for (let k = 0; k < 16; k++) {
             const x = p.x + Math.cos(k * 0.3927) * r, z = p.z + Math.sin(k * 0.3927) * r;
-            if ((heightAt(x, z) > WATER_LEVEL - 0.12 || onDeck(x, z)) && walkable(x, z, Infinity)) { pl.boat.userData.speed = 0; pl.boat = null; p.x = x; p.z = z; return; }
+            if ((heightAt(x, z) > WATER_LEVEL - 0.12 || onDeck(x, z)?.low) && walkable(x, z, Infinity)) { pl.boat.userData.speed = 0; pl.boat = null; p.x = x; p.z = z; return; }
         }
+        return;
+    }
+    const dog = nearDog();
+    if (dog) { // streicheln: der Hund setzt sich kurz und bellt freudig
+        dog.state = 'idle'; dog.timer = 4;
+        hello.c = dog; hello.until = clock.elapsedTime + 2;
+        document.getElementById('hello').textContent = '♥';
+        if (sound && !sound.muted) bark(0.5, dog.def.h > 0.6 ? 300 : 430);
         return;
     }
     if (pl.towel && nearLine()) return carryTowel(null);
@@ -1631,6 +1672,7 @@ function updateHint() {
     const el = document.getElementById('hint'), key = touch.used ? 'Tippen' : 'F';
     let text = '';
     if (player?.boat) text = `${key}: Aussteigen (am Ufer)`;
+    else if (nearDog()) text = `${key}: Hund streicheln`;
     else if (player?.towel && nearLine()) text = `${key}: Handtuch aufhängen`;
     else if (!player?.towel && towelAt()) text = `${key}: Handtuch abnehmen`;
     else if (nearBoat()) text = S.ice < 0.5 ? `${key}: Ins Boot steigen` : 'Der Fluss ist zugefroren';
@@ -1663,7 +1705,7 @@ function updatePlayer(dt) {
             else if (walkable(nx, p.z, p.y)) p.x = nx;      // an Hindernissen entlanggleiten
             else if (walkable(p.x, nz, p.y)) p.z = nz;
         }
-        if (!pl.boat) p.y = Math.max(heightAt(p.x, p.z), onDeck(p.x, p.z)?.y ?? -Infinity);
+        if (!pl.boat) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
         pl.wake = (pl.wake ?? 0) - dt * (0.4 + pl.moving * (1 + pl.running));
         if (!pl.boat && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
         pl.model.rotation.y = pl.heading;
@@ -2818,7 +2860,30 @@ async function createVillage() {
         for (let i = 0; i < n; i++) for (const sd of [-1, 1]) posts.setMatrixAt(i * 2 + (sd > 0 ? 1 : 0), new THREE.Matrix4().makeTranslation(x0 + 0.15 + (x1 - x0 - 0.9) * i / (n - 1), y - 0.6, z + sd * 0.58));
         posts.castShadow = true;
         scene.add(deck, posts);
-        decks.push({ x0, x1, z0: z - 0.65, z1: z + 0.65, y: y + 0.035 });
+        decks.push({ x0, x1, z0: z - 0.65, z1: z + 0.65, y: y + 0.035, low: true });
+    }
+    // Bogenbrücke: Bohlen folgen dem Bogen, Geländer auf beiden Seiten, Pfähle im Wasser
+    {
+        const { z, x0, x1, half, rise } = BRIDGE, len = x1 - x0, y0 = heightAt(x0, z) + 0.04, y1 = heightAt(x1, z) + 0.04;
+        const yAt = (x) => { const u = (x - x0) / len; return lerp(y0, y1, u) + rise * 4 * u * (1 - u); };
+        const N = 28, seg = len / N, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+        const planks = new THREE.InstancedMesh(new THREE.BoxGeometry(seg * 1.04, 0.07, half * 2), wood, N);
+        const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(seg * 1.04, 0.06, 0.06), wood, N * 2);
+        const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.04, 0.045, 1.0, 6), wood, (N / 2 + 1) * 2);
+        let np = 0;
+        for (let i = 0; i < N; i++) {
+            const xa = x0 + i * seg, xb = xa + seg, xm = (xa + xb) / 2, ym = (yAt(xa) + yAt(xb)) / 2;
+            q.setFromEuler(e.set(0, 0, Math.atan2(yAt(xb) - yAt(xa), seg)));
+            planks.setMatrixAt(i, m4.compose(v.set(xm, ym - 0.035, z), q, one));
+            for (const sd of [-1, 1]) rails.setMatrixAt(i * 2 + (sd > 0 ? 1 : 0), m4.compose(v.set(xm, ym + 0.98, z + sd * (half - 0.05)), q, one));
+            if (i % 2 === 0) for (const sd of [-1, 1]) posts.setMatrixAt(np++, m4.makeTranslation(xa, yAt(xa) + 0.5, z + sd * (half - 0.05)));
+        }
+        for (const sd of [-1, 1]) posts.setMatrixAt(np++, m4.makeTranslation(x1, y1 + 0.5, z + sd * (half - 0.05)));
+        posts.count = np;
+        const piles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.09, 0.1, 1, 8), wood, 6);
+        [0.28, 0.5, 0.72].forEach((u, i) => { for (const sd of [-1, 1]) { const x = x0 + len * u, top = yAt(x) - 0.05, bot = heightAt(x, z + sd * half * 0.8) - 0.3; piles.setMatrixAt(i * 2 + (sd > 0 ? 1 : 0), m4.compose(v.set(x, (top + bot) / 2, z + sd * half * 0.8), q.identity(), new THREE.Vector3(1, top - bot, 1))); } });
+        for (const mesh of [planks, rails, posts, piles]) { mesh.castShadow = mesh.receiveShadow = true; mesh.frustumCulled = false; scene.add(mesh); }
+        decks.push({ x0, x1, z0: z - half, z1: z + half, yAt });
     }
     // Rauch aus den Schornsteinen: Punkte steigen auf, treiben mit dem Wind ab und lösen sich auf
     const smokeU = { uTime: { value: 0 }, uWind: { value: 0 }, uAmount: { value: 0.5 }, uScale: { value: 600 }, uColor: { value: new THREE.Color(0.7, 0.7, 0.72) } };
@@ -3662,6 +3727,7 @@ function animate() {
     updateCrayfish(dt);
     updateBeaver(dt, time);
     updateDucks(dt, time);
+    updateRainbow(day);
     updateHint();
     updateCritters(dt, time);
     updateFlyers(dt, time, clamp01(1 - S.frost * 2 - w * 1.2) * (1 - 0.6 * S.autumn) * day);
