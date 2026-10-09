@@ -1850,6 +1850,8 @@ function driveJeep(pl, fwd, side, run, dt) {
     if (clear(nx, nz) && clear(nx + sh * dir * 1.6, nz + ch * dir * 1.6)) { j.x = nx; j.z = nz; } else j.speed *= -0.2; // Hindernis: kurz zurückfedern
     placeJeep(1 - Math.exp(-dt * 8));
     for (const w of j.wheels) w.rotation.x += j.speed * dt / JEEP.wheelR; // Räder rollen mit
+    j.steer += (side - j.steer) * (1 - Math.exp(-dt * 6));
+    if (j.steering) j.steering.mesh.quaternion.setFromAxisAngle(j.steering.axis, j.steer * 1.3 * (j.steering.axis.y > 0 ? -1 : 1)); // Lenkrad dreht mit
     if (Math.abs(j.speed) > 2 && (dust.wait -= dt) < 0) { dust.wait = 0.05; const sd = Math.random() < 0.5 ? -0.6 : 0.6; emitDust(j.x - sh * dir * 1.3 + ch * sd, j.y + 0.15, j.z - ch * dir * 1.3 - sh * sd, -sh * j.speed * 0.12, -ch * j.speed * 0.12); }
     // die Figur sitzt am Steuer
     pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95;
@@ -3370,6 +3372,7 @@ async function createVillage() {
         // an der Seite innerhalb des Reifenradius um eine Achse liegt, wird zu einem eigenen Rad.
         turn.updateMatrixWorld(true);
         const wheels = [];
+        let steering = null;
         m.traverse((o) => {
             if (!o.isMesh || !o.visible) return;
             const geo = o.geometry.toNonIndexed().applyMatrix4(o.matrixWorld), pos = geo.attributes.position, R = JEEP.wheelR, n = pos.count / 3;
@@ -3381,6 +3384,15 @@ async function createVillage() {
                 for (let c = 0; c < 3 && inside; c++) { const i = t * 3 + c; inside = pos.getX(i) * sx > 0.45 && Math.hypot(pos.getY(i) - R, pos.getZ(i) - za) < R * 1.05; }
                 if (inside) { group[t] = k; break; }
             }
+            // Lenkrad: alles in einer kleinen Kugel um die Stelle, an der die Hände greifen
+            const [sl, su, sf] = JEEP.seat, [, gu, gf] = JEEP.grip, hub = new THREE.Vector3(sl, su + 0.1 + gu, sf + gf), sw = [];
+            for (let t = 0; t < n; t++) {
+                if (group[t] !== -1) continue;
+                let inside = true;
+                for (let c = 0; c < 3 && inside; c++) { const i = t * 3 + c; inside = Math.hypot(pos.getX(i) - hub.x, pos.getY(i) - hub.y, pos.getZ(i) - hub.z) < 0.25; }
+                if (inside) { group[t] = 4; sw.push(t); }
+            }
+            if (sw.length <= 30) for (const t of sw) group[t] = -1; // nichts Brauchbares gefunden: bleibt Teil der Karosserie
             const part = (k) => { // neue Geometrie aus den Dreiecken einer Gruppe
                 const out = new THREE.BufferGeometry();
                 for (const name of Object.keys(geo.attributes)) {
@@ -3392,6 +3404,19 @@ async function createVillage() {
             };
             const body = new THREE.Mesh(part(-1), o.material);
             body.castShadow = body.receiveShadow = true; g.add(body);
+            if (sw.length > 30) { // Drehachse = die Richtung, in der der Kranz am flachsten ist
+                const wg = part(4), wp = wg.attributes.position, c = new THREE.Vector3(), v = new THREE.Vector3();
+                for (let i = 0; i < wp.count; i++) c.add(v.fromBufferAttribute(wp, i));
+                c.divideScalar(wp.count);
+                const cov = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+                for (let i = 0; i < wp.count; i++) { v.fromBufferAttribute(wp, i).sub(c); const e = [v.x, v.y, v.z]; for (let a = 0; a < 3; a++) for (let b2 = 0; b2 < 3; b2++) cov[a * 3 + b2] += e[a] * e[b2]; }
+                const major = (mtx) => { const q = new THREE.Vector3(0.3, 0.5, 0.8); for (let it = 0; it < 40; it++) q.set(mtx[0] * q.x + mtx[1] * q.y + mtx[2] * q.z, mtx[3] * q.x + mtx[4] * q.y + mtx[5] * q.z, mtx[6] * q.x + mtx[7] * q.y + mtx[8] * q.z).normalize(); return q; };
+                const a1 = major(cov), l1 = a1.x * (cov[0] * a1.x + cov[1] * a1.y + cov[2] * a1.z) + a1.y * (cov[3] * a1.x + cov[4] * a1.y + cov[5] * a1.z) + a1.z * (cov[6] * a1.x + cov[7] * a1.y + cov[8] * a1.z), e1 = [a1.x, a1.y, a1.z];
+                const rest = cov.map((val, i) => val - l1 * e1[Math.floor(i / 3)] * e1[i % 3]), a2 = major(rest); // zweite Hauptrichtung nach Abzug der ersten
+                const axis = a1.clone().cross(a2).normalize(), steer = new THREE.Mesh(wg.translate(-c.x, -c.y, -c.z), o.material);
+                steer.position.copy(c); steer.castShadow = true; g.add(steer);
+                steering = { mesh: steer, axis };
+            }
             for (let k = 0; k < 4; k++) {
                 const wg = part(k);
                 if (!wg.attributes.position.count) continue;
@@ -3401,11 +3426,34 @@ async function createVillage() {
         });
         // Scheinwerfer: zwei Lichtpunkte am Kühler; ihr Lichtkegel auf dem Weg kommt nachts aus dem gemeinsamen Lichtvorrat
         const beams = [-0.34, 0.34].map((sx) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color: 0xfff2d0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })); sp.position.set(sx, 0.8, 1.62); sp.scale.setScalar(0.7); g.add(sp); return sp; });
-        jeep = { g, wheels, beams, lightPos: new THREE.Vector3(), x: at.x, z: at.z, heading: Math.atan2(dir.x - at.x, dir.z - at.z), speed: 0, ob: { x: at.x, z: at.z, r: 1.7 } };
+        jeep = { g, wheels, steering, steer: 0, beams, lightPos: new THREE.Vector3(), x: at.x, z: at.z, heading: Math.atan2(dir.x - at.x, dir.z - at.z), speed: 0, ob: { x: at.x, z: at.z, r: 1.7 } };
         obstacles.push(jeep.ob);
         placeJeep(1);
         scene.add(g);
     } catch (err) { console.warn('Modell fehlt: jeep', err); }
+    // Marktstand auf dem Dorfplatz: Tisch unter gestreifter Plane, Kisten mit Äpfeln, Kohl und Kürbissen
+    {
+        const at = roadPoint(0.415, 8.6), stall = new THREE.Group();
+        stall.position.set(at.x, heightAt(at.x, at.z), at.z); stall.rotation.y = at.face;
+        const cv = document.createElement('canvas'); cv.width = 128; cv.height = 16;
+        const g2 = cv.getContext('2d'); for (let i = 0; i < 8; i++) { g2.fillStyle = i % 2 ? '#f3ead8' : '#c8402c'; g2.fillRect(i * 16, 0, 16, 16); }
+        const stripes = new THREE.CanvasTexture(cv); stripes.colorSpace = THREE.SRGBColorSpace;
+        const put = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; stall.add(m); return m; };
+        for (const sx of [-1.25, 1.25]) for (const sz of [-0.55, 0.55]) put(new THREE.CylinderGeometry(0.035, 0.04, sz > 0 ? 2.0 : 2.35, 6), wood, sx, sz > 0 ? 1.0 : 1.175, sz);
+        put(new THREE.BoxGeometry(2.6, 0.06, 1.0), wood, 0, 0.85, 0.05);
+        for (const sx of [-1.15, 1.15]) put(new THREE.BoxGeometry(0.08, 0.82, 0.9), wood, sx, 0.42, 0.05);
+        const awning = put(new THREE.PlaneGeometry(2.9, 1.5), new THREE.MeshStandardMaterial({ map: stripes, side: THREE.DoubleSide, roughness: 0.9 }), 0, 2.2, 0.05);
+        awning.rotation.x = -Math.PI / 2 + 0.3;
+        const fruit = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshStandardMaterial({ roughness: 0.55 }), 60), m4 = new THREE.Matrix4(), col = new THREE.Color();
+        let nf = 0;
+        [[-0.85, 0xc8301c, 0.045], [0, 0x6a9a3a, 0.085], [0.85, 0xe07a1c, 0.1]].forEach(([cx, color, r]) => { // je Kiste eine Sorte
+            put(new THREE.BoxGeometry(0.7, 0.16, 0.6), wood, cx, 0.96, 0.05);
+            for (let i = 0; i < (r < 0.06 ? 28 : 9); i++) { const k = r < 0.06 ? 0.11 : 0.2; m4.makeScale(r, r * (r > 0.09 ? 0.75 : 0.95), r).setPosition(cx + ((i % 5) - 2) * k * 0.6 + (rnd() - 0.5) * 0.03, 1.06 + Math.floor(i / 15) * r * 1.5 + rnd() * 0.02, 0.05 + ((Math.floor(i / 5) % 3) - 1) * k * 0.75); fruit.setMatrixAt(nf, m4); fruit.setColorAt(nf++, col.set(color).offsetHSL((rnd() - 0.5) * 0.03, 0, (rnd() - 0.5) * 0.1)); }
+        });
+        fruit.count = nf; fruit.castShadow = true; stall.add(fruit);
+        scene.add(stall);
+        for (const k of [-0.9, 0, 0.9]) { const q = stall.localToWorld(new THREE.Vector3(k, 0, 0.05)); obstacles.push({ x: q.x, z: q.z, r: 0.75 }); }
+    }
     // Jahreszeiten im Dorf: Schneemann im Winter, Kürbisse im Herbst, Maibaum im Frühling
     const seasonal = { snowman: new THREE.Group(), pumpkins: null, maypole: new THREE.Group() };
     {
@@ -3645,6 +3693,8 @@ const HERDS = {
     // Dorf: Bewohner, Hunde und Katzen bleiben am Platz, das Vieh im Pferch
     village: { x: WELL.x, z: WELL.z, side: 1, fixed: true, pick: () => roadPoint(0.1 + rnd() * 0.88, (rnd() - 0.5) * 5) },
     pen: { x: PEN.x, z: PEN.z, side: 1, fixed: true, roam: 6 },
+    market: Object.assign(roadPoint(0.415, 7.0), { side: 1, fixed: true, roam: 1.6 }), // der Händler bleibt an seinem Stand
+    kids: Object.assign(roadPoint(0.5, 6.5), { side: 1, fixed: true, roam: 8 }),          // die Kinder toben auf dem Dorfplatz
     sheep: { x: -42, z: -30, side: -1, fixed: true, roam: 10 }, // Schafe weiden am anderen Ufer hinter dem Lagerplatz
     coop: Object.assign(lotW(LOTS[0], 0.5, -6.5), { side: 1, fixed: true, roam: 4.5 }), // Hühner scharren im Garten hinter dem ersten Haus
     wolf2: { x: -62, z: 46, side: -1, timer: 55 },
@@ -3658,6 +3708,8 @@ const CRITTERS = [
     { file: 'animals/fox.glb', n: 4, h: 0.48, herds: ['fox', 'fox', 'fox2', 'fox2'], idle: ['Survey'], walk: 'Walk', run: 'Run', vWalk: 0.9, vRun: 5, flee: 9 },
     // Dorf (CC0-Modelle von Quaternius, s. village/)
     { file: 'village/farmer.glb', n: 2, h: 1.78, herd: 'village', idle: ['Idle', 'Idle_Neutral', 'Interact'], walk: 'Walk', run: 'Run', vWalk: 1.2, vRun: 3.5, flee: 0, tint: /LightBlue|Brown2/ },
+    { file: 'village/farmer.glb', n: 1, h: 1.74, herd: 'market', idle: ['Idle', 'Idle_Neutral', 'Interact'], walk: 'Walk', run: 'Run', vWalk: 0.8, vRun: 3, flee: 0 },
+    { file: 'village/man.glb', n: 2, h: 1.08, herd: 'kids', idle: ['Man_Idle', 'Man_Clapping'], walk: 'Man_Walk', run: 'Man_Run', vWalk: 1.4, vRun: 3.4, flee: 0, play: true, colors: [0xe8c23a, 0xd8503a], tint: /Shirt/ }, // zwei Kinder spielen Fangen
     { file: 'village/man.glb', n: 3, h: 1.76, herd: 'village', idle: ['Man_Idle', 'Man_Idle', 'Man_Clapping'], walk: 'Man_Walk', run: 'Man_Run', vWalk: 1.2, vRun: 3.5, flee: 0, tint: /Shirt|Pants/ },
     { file: 'village/husky.glb', n: 1, h: 0.68, herd: 'village', idle: ['Idle', 'Idle_2', 'Idle_2_HeadLow'], walk: 'Walk', run: 'Gallop', vWalk: 1.3, vRun: 5.5, flee: 0, follow: true },
     { file: 'village/shiba.glb', n: 1, h: 0.56, herd: 'village', idle: ['Idle', 'Idle_2', 'Idle_2_HeadLow'], walk: 'Walk', run: 'Gallop', vWalk: 1.3, vRun: 5.5, flee: 0, follow: true },
@@ -3975,12 +4027,12 @@ function updateCritters(dt, time) {
             if ((c.timer -= dt) < 0) {
                 const a = rnd() * 6.28, r = 2 + rnd() * ((h.roam ?? 12) - 2), spot = h.pick?.(); // Dorfbewohner gehen den Weg entlang
                 const tx = spot ? spot.x : h.x + Math.cos(a) * r, tz = spot ? spot.z : h.z + Math.sin(a) * r;
-                if (critterOk(tx, tz, h.side)) { c.state = 'walk'; c.tx = tx; c.tz = tz; } else c.timer = 1;
+                if (critterOk(tx, tz, h.side)) { c.state = d.play ? 'flee' : 'walk'; c.tx = tx; c.tz = tz; } else c.timer = 1; // Kinder rennen
             }
         } else {
             const dx = c.tx - c.x, dz = c.tz - c.z, dist = Math.hypot(dx, dz), run = c.state === 'flee';
             if (dist < 0.7) {
-                c.state = 'idle'; c.timer = d.restless ? 0 : 4 + rnd() * 12; // die Bäuerinnen sind immer unterwegs
+                c.state = 'idle'; c.timer = d.restless ? 0 : d.play ? 0.4 + rnd() * 2.5 : 4 + rnd() * 12; // die Bäuerinnen sind immer unterwegs
                 if (c.idles.length) c.idle = Math.floor(rnd() * c.idles.length);
             } else {
                 let turn = Math.atan2(dx, dz) - c.heading;
