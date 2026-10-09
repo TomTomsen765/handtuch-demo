@@ -435,6 +435,12 @@ const inField = (x, z, pad = 0) => {
     const mill = BUILDINGS.find((k) => k.file === 'windmill'), edge = fieldW(FIELD.hw - 1, FIELD.hd), dx = edge.x - mill.x, dz = edge.z - mill.z, l = Math.hypot(dx, dz);
     PATHS.push({ ax: mill.x + dx / l * 3.4, az: mill.z + dz / l * 3.4, bx: edge.x, bz: edge.z });
 }
+// Bogenbrücke über den Fluss, flussab der Wäscheleine
+const BRIDGE = { z: -13, x0: -22, x1: -8, half: 0.8, rise: 1.5 };
+// Lagerplatz am anderen Ufer; ein Pfad führt von der Wäscheleine über die Brücke dorthin
+const CAMP = { x: -27, z: -18 };
+PATHS.push({ ax: 1.5, az: -3, bx: BRIDGE.x1 + 0.3, bz: BRIDGE.z }, { ax: BRIDGE.x0 - 0.3, az: BRIDGE.z, bx: CAMP.x + 2.2, bz: CAMP.z + 1.2 });
+const PATH_RAD = 104; // Umkreis um die Dorfmitte, in dem Weg und Pfade liegen
 const pathDist = (x, z) => {
     let best = Infinity;
     for (const q of PATHS) {
@@ -445,7 +451,7 @@ const pathDist = (x, z) => {
 };
 const HEDGE = { h: 1.7, foot: 0.26, half: 0.36 }; // Höhe, Beginn des Laubs über dem Boden, halbe Dicke
 const hedgeUniforms = { uTime: { value: 0 }, uTurn: { value: 0 }, uWinter: { value: 0 } };
-const builtUp = (x, z) => inLot(x, z) || inField(x, z, 1) || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r + 1) ** 2);
+const builtUp = (x, z) => inLot(x, z) || inField(x, z, 1) || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 16 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r + 1) ** 2);
 
 /**
  * ENGINE
@@ -479,8 +485,7 @@ const riverSlope = (z) => 0.15 * Math.cos(z * 0.03) + 0.033 * Math.cos(z * 0.011
 const decks = []; // begehbare Stege und Brücken: { x0, x1, z0, z1, y } oder mit yAt(x) für einen Bogen; low: Boote kommen nicht darunter durch
 const onDeck = (x, z) => decks.find((d) => x > d.x0 && x < d.x1 && z > d.z0 && z < d.z1);
 const deckY = (x, z) => { const d = onDeck(x, z); return d ? (d.yAt ? d.yAt(x) : d.y) : -Infinity; };
-// Bogenbrücke über den Fluss, flussab der Wäscheleine
-const BRIDGE = { z: -13, x0: -22, x1: -8, half: 0.8, rise: 1.5 };
+
 const obstacles = []; // { x, z, r } – Pfosten der Wäscheleine
 const keys = new Set();
 const touch = { fwd: 0, side: 0, run: false, stick: null, used: false }; // Steuerknüppel auf Touch-Geräten
@@ -759,7 +764,7 @@ function createTerrain() {
         tBed: { value: loadTex(ASSETS.riverbed, '#6d6558') },
         uTime: { value: 0 }, uCaustic: { value: 1 }, uWet: { value: 0 },
         uRoad: { value: ROAD.pts.map((q) => new THREE.Vector2(q.x, q.z)) },
-        uRoadC: { value: new THREE.Vector3(ROAD.cx, ROAD.cz, ROAD.rad) },
+        uRoadC: { value: new THREE.Vector3(ROAD.cx, ROAD.cz, PATH_RAD) },
         uPath: { value: PATHS.map((q) => new THREE.Vector4(q.ax, q.az, q.bx, q.bz)) },
         uGrassTint: { value: new THREE.Color(1, 1, 1) },
         uSnowLine: { value: 135 },
@@ -1228,7 +1233,8 @@ function groundTexture() {
         else if (BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r - 0.4) ** 2)) grow = 0;
         else if (inLot(x, z, 0.1)) grow = 0.26;                                            // gemähter Rasen in den Gärten
         else if (Math.hypot(x - PEN.x, z - PEN.z) < PEN.r) grow = 0.3;                     // abgeweidet
-        if (grow > 0 && (x - ROAD.cx) ** 2 + (z - ROAD.cz) ** 2 < ROAD.rad ** 2) grow *= smooth(0.5, 1.4, pathDist(x, z)); // ausgetretene Pfade
+        if (grow > 0 && (x - ROAD.cx) ** 2 + (z - ROAD.cz) ** 2 < PATH_RAD ** 2) grow *= smooth(0.5, 1.4, pathDist(x, z)); // ausgetretene Pfade
+        if (grow > 0) grow *= smooth(1.3, 2.6, Math.hypot(x - CAMP.x, z - CAMP.z)); // festgetretene Erde ums Lagerfeuer
         grow *= smooth(size * 0.49, size * 0.42, Math.max(Math.abs(x), Math.abs(z)));
         data[(j * N + i) * 2] = half(y); data[(j * N + i) * 2 + 1] = half(grow);
     }
@@ -1378,7 +1384,7 @@ async function createTrees() {
             const a = rand() * Math.PI * 2, r = Math.sqrt(lerp(rMin * rMin, rMax * rMax, rand()));
             const x = Math.cos(a) * r, z = Math.sin(a) * r;
             if (Math.abs(x - riverX(z)) < 9 * riverW(z) + 2) continue;
-            if (roadDist(x, z) < ROAD.half + 1 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.clear ?? b.r + 1) ** 2) || inField(x, z, 4)) continue;
+            if (roadDist(x, z) < ROAD.half + 1 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.clear ?? b.r + 1) ** 2) || inField(x, z, 4) || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 49) continue;
             const y = heightAt(x, z);
             if (y > maxH || tooClose(x, z, 6)) continue;
             // Blick von der Startkamera auf die Wäscheleine frei halten
@@ -2885,6 +2891,62 @@ async function createVillage() {
         for (const mesh of [planks, rails, posts, piles]) { mesh.castShadow = mesh.receiveShadow = true; mesh.frustumCulled = false; scene.add(mesh); }
         decks.push({ x0, x1, z0: z - half, z1: z + half, yAt });
     }
+    // Lagerplatz: Feuerstelle mit Steinkranz, Zelt und zwei Stämmen zum Sitzen
+    const fire = { u: { uTime: { value: 0 } }, light: new THREE.PointLight(0xff8a3a, 0, 20, 1.6) };
+    {
+        const { x, z } = CAMP, y = heightAt(x, z), camp = new THREE.Group();
+        camp.position.set(x, y, z);
+        const stoneMat = new THREE.MeshStandardMaterial({ color: 0x8a867c, roughness: 1, flatShading: true });
+        for (let k = 0; k < 9; k++) { const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.13 + rnd() * 0.05, 0), stoneMat); st.position.set(Math.cos(k * 0.698) * 0.5, 0.06, Math.sin(k * 0.698) * 0.5); st.rotation.set(rnd() * 3, rnd() * 3, 0); st.castShadow = true; camp.add(st); }
+        for (let k = 0; k < 4; k++) { const lg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 0.75, 6), wood); lg.position.set(Math.cos(k * 1.571 + 0.4) * 0.12, 0.2, Math.sin(k * 1.571 + 0.4) * 0.12); lg.rotation.set(Math.sin(k * 1.571 + 0.4) * 0.75, 0, -Math.cos(k * 1.571 + 0.4) * 0.75); camp.add(lg); }
+        // Flammen: zwei gekreuzte Flächen, die Form flackert im Shader
+        const flameMat = new THREE.ShaderMaterial({
+            uniforms: fire.u, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+            vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+            fragmentShader: `uniform float uTime; varying vec2 vUv;
+                void main() {
+                    float x = (vUv.x - 0.5) * 2.0 + 0.2 * sin(vUv.y * 6.0 - uTime * 6.5) * vUv.y + 0.08 * sin(vUv.y * 15.0 - uTime * 11.0);
+                    float w = (1.0 - vUv.y) * 0.72 * (0.85 + 0.15 * sin(uTime * 9.0 + vUv.y * 10.0));
+                    float f = smoothstep(w, w * 0.3, abs(x)) * smoothstep(0.0, 0.07, vUv.y);
+                    gl_FragColor = vec4(mix(vec3(1.0, 0.22, 0.02), vec3(1.0, 0.8, 0.3), f * (1.0 - vUv.y)) * 2.4, f * (1.0 - vUv.y * 0.7));
+                }`
+        });
+        for (const ry of [0, Math.PI / 2]) { const fl = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 1.0).translate(0, 0.55, 0), flameMat); fl.rotation.y = ry + 0.4; fl.renderOrder = 3; camp.add(fl); }
+        fire.light.position.set(0, 0.7, 0); camp.add(fire.light);
+        // Zelt: zwei schräge Bahnen, hinten geschlossen, vorn offen zum Feuer
+        const tg = new THREE.BufferGeometry(), L = 2.3, W = 0.85, H = 1.25;
+        tg.setAttribute('position', new THREE.Float32BufferAttribute([-W, 0, -L / 2, 0, H, -L / 2, 0, H, L / 2, -W, 0, -L / 2, 0, H, L / 2, -W, 0, L / 2,
+            W, 0, -L / 2, 0, H, L / 2, 0, H, -L / 2, W, 0, -L / 2, W, 0, L / 2, 0, H, L / 2, -W, 0, -L / 2, W, 0, -L / 2, 0, H, -L / 2], 3));
+        tg.computeVertexNormals();
+        const tent = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ color: 0xb7a36e, roughness: 0.95, side: THREE.DoubleSide }));
+        tent.position.set(-2.6, 0, -1.2); tent.rotation.y = 1.15; tent.castShadow = tent.receiveShadow = true;
+        camp.add(tent);
+        for (const [lx, lz, ry] of [[1.3, 0.9, 0.9], [0.2, -1.7, -0.2]]) { const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 1.5, 9).rotateZ(Math.PI / 2), wood); seat.position.set(lx, 0.16, lz); seat.rotation.y = ry; seat.castShadow = seat.receiveShadow = true; camp.add(seat); obstacles.push({ x: x + lx, z: z + lz, r: 0.55 }); }
+        scene.add(camp);
+        obstacles.push({ x, z, r: 0.75 }, { x: x - 2.6, z: z - 1.2, r: 1.2 });
+        chimneys.push(new THREE.Vector3(x, y + 0.9, z)); // der Rauch des Feuers nutzt dieselben Schwaden wie die Schornsteine
+    }
+    // Glühwürmchen: in milden Nächten glimmen sie rund um die Figur knapp über dem Gras
+    const flies = new THREE.Points(new THREE.BufferGeometry(), new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uAmt: { value: 0 }, uCenter: { value: new THREE.Vector3() }, uScale: { value: 600 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        vertexShader: `uniform float uTime; uniform float uAmt; uniform vec3 uCenter; uniform float uScale; attribute float seed; varying float vA;
+            void main() {
+                vec3 p = position + vec3(sin(uTime * 0.31 + seed * 40.0), sin(uTime * 0.47 + seed * 17.0) * 0.35, cos(uTime * 0.27 + seed * 23.0)) * 1.3;
+                p.xz = uCenter.xz + mod(p.xz - uCenter.xz + 30.0, 60.0) - 30.0; // das Feld wandert mit der Figur mit
+                p.y += uCenter.y;
+                vec4 mv = modelViewMatrix * vec4(p, 1.0);
+                gl_Position = projectionMatrix * mv;
+                gl_PointSize = 0.09 * uScale / -mv.z;
+                vA = uAmt * smoothstep(0.35, 0.9, sin(uTime * (0.9 + fract(seed * 7.0)) + seed * 60.0)); // jedes blinkt in eigenem Takt
+            }`,
+        fragmentShader: 'varying float vA; void main() { gl_FragColor = vec4(vec3(0.75, 1.0, 0.3) * 2.5, smoothstep(0.5, 0.05, length(gl_PointCoord - 0.5)) * vA); }'
+    }));
+    {
+        const N = 90, pos = new Float32Array(N * 3), seed = new Float32Array(N);
+        for (let i = 0; i < N; i++) { pos[i * 3] = rnd() * 60; pos[i * 3 + 1] = 0.5 + rnd() * 1.6; pos[i * 3 + 2] = rnd() * 60; seed[i] = rnd(); }
+        flies.geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3)); flies.geometry.setAttribute('seed', new THREE.BufferAttribute(seed, 1));
+        flies.frustumCulled = false; flies.layers.set(NO_MIRROR); scene.add(flies);
+    }
     // Rauch aus den Schornsteinen: Punkte steigen auf, treiben mit dem Wind ab und lösen sich auf
     const smokeU = { uTime: { value: 0 }, uWind: { value: 0 }, uAmount: { value: 0.5 }, uScale: { value: 600 }, uColor: { value: new THREE.Color(0.7, 0.7, 0.72) } };
     if (chimneys.length) {
@@ -2909,7 +2971,7 @@ async function createVillage() {
         smoke.frustumCulled = false; smoke.layers.set(NO_MIRROR);
         scene.add(smoke);
     }
-    village = { glow, lamps, cats, fallLeaves, boats, mills, smokeU, lanterns, lanternLights };
+    village = { glow, lamps, cats, fallLeaves, boats, mills, smokeU, lanterns, lanternLights, fire, flies };
 }
 const night0 = (day) => 1 - smooth(0.15, 0.6, day);
 function updateVillage(day, dt) {
@@ -2920,6 +2982,14 @@ function updateVillage(day, dt) {
     su.uAmount.value = 0.38 + 0.4 * S.frost + 0.2 * night0(day);
     su.uScale.value = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     su.uColor.value.setScalar(lerp(0.1, 0.78, day));
+    // Lagerfeuer flackert; nachts trägt sein Licht weit, am Tag kaum
+    const ft = clock.elapsedTime;
+    village.fire.u.uTime.value = ft;
+    village.fire.light.intensity = lerp(22, 5, day) * (0.78 + 0.14 * Math.sin(ft * 11.3) + 0.08 * Math.sin(ft * 23.7 + 1.3));
+    const fu = village.flies.material.uniforms, pp0 = player ? player.model.position : START;
+    fu.uAmt.value = night0(day) * clamp01(1 - S.frost * 2) * (1 - state.weather);
+    village.flies.visible = fu.uAmt.value > 0.01;
+    fu.uTime.value = ft; fu.uCenter.value.set(pp0.x, heightAt(pp0.x, pp0.z), pp0.z); fu.uScale.value = su.uScale.value;
     for (const m of village.mills) m.timeScale = 0.3 + state.wind * 1.6; // die Mühle dreht mit dem Wind
     for (const m of village.cats) m.update(dt);
     const night = 1 - smooth(0.15, 0.6, day); // Lichter gehen in der Dämmerung an
@@ -3520,6 +3590,11 @@ function updateSound(dt, day, rainAmt) {
         sound.dog = 10 + Math.random() * 30;
         const dogs = critters.filter((c) => c.def.follow), dog = dogs[Math.floor(Math.random() * dogs.length)];
         if (dog) { const vol = 0.9 * smooth(150, 6, Math.hypot(pp.x - dog.x, pp.z - dog.z)); if (vol > 0.02) bark(vol, dog.def.h > 0.6 ? 300 : 430); }
+    }
+    const dFire = Math.hypot(pp.x - CAMP.x, pp.z - CAMP.z); // das Feuer knistert, wenn man nah dran ist
+    if (dFire < 16 && (sound.crackle = (sound.crackle ?? 0) - dt) < 0) {
+        sound.crackle = 0.05 + Math.random() * 0.35;
+        soundBurst('bandpass', 1800 + Math.random() * 3500, 3, 0.11 * smooth(16, 2, dFire) * (0.3 + Math.random()), 0.03 + Math.random() * 0.05);
     }
     if ((sound.duck = (sound.duck ?? 9) - dt) < 0) { // die Enten schnattern, wenn man in ihrer Nähe ist
         sound.duck = 12 + Math.random() * 30;
