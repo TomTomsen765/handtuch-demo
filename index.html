@@ -3492,7 +3492,7 @@ async function createVillage() {
         const m = (await loader.loadAsync('village/heli.glb')).scene, box = new THREE.Box3();
         m.updateMatrixWorld(true);
         let main = null, tail = null;
-        m.traverse((o) => { if (o.name === 'Propeller_2') main = o; if (o.name === 'Propeller') tail = o; if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.material.metalness = 0; o.material.roughness = Math.max(o.material.roughness, 0.6); if (!/Propeller_2/.test(o.name)) box.expandByObject(o); } });
+        m.traverse((o) => { if (o.name === 'Propeller_2') main = o; if (o.name === 'Propeller') tail = o; if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.material.metalness = 0; o.material.roughness = Math.max(o.material.roughness, 0.6); if (!/Propeller_2/.test(o.name)) box.expandByObject(o, true); } }); // punktgenau messen: die Kufen sind im Modell gedreht, die grobe Hülle reichte tiefer als sie
         const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3()), sc = 8.5 / Math.max(size.x, size.z), turn = new THREE.Group(), g = new THREE.Group();
         m.scale.multiplyScalar(sc); m.position.set(-c.x * sc, -box.min.y * sc, -c.z * sc);
         turn.add(m); turn.rotation.y = (size.x > size.z ? Math.PI / 2 : 0) + HELI.flip; // Nase zeigt nach +z
