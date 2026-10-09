@@ -1,0 +1,9 @@
+# Nur die 3D-Szene liegt im Repo: index.html, avatar/, animals/
+node_modules/
+_site/
+.DS_Store
+src/
+.eleventy.js
+package.json
+package-lock.json
+.flashcat-backup/
