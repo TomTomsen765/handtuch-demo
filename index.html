@@ -95,7 +95,7 @@
         <dl>
             <dt>W A S D</dt><dd>Laufen, mit Shift rennen. Am Handy: links der Steuerknüppel.</dd>
             <dt>Maus</dt><dd>Umsehen (Klick fängt die Maus, Esc löst sie), Mausrad zoomt. Am Handy: rechts wischen, zwei Finger zoomen.</dd>
-            <dt>F</dt><dd>Anfassen, was in der Nähe ist: Handtuch abnehmen, ins Boot steigen, aufs Pferd steigen, Jeep fahren, Hund streicheln, hinsetzen. Der Hinweis unten zeigt, was gerade geht.</dd>
+            <dt>F</dt><dd>Anfassen, was in der Nähe ist: Handtuch abnehmen, ins Boot steigen, aufs Pferd steigen, Jeep fahren, angeln (auf Steg und Brücke), Hund streicheln, hinsetzen. Der Hinweis unten zeigt, was gerade geht.</dd>
             <dt>Q · E · T</dt><dd>Jahreszeit, Wetter, Tageszeit weiter. Z hält die Zeit an.</dd>
             <dt>P · M</dt><dd>Foto speichern, Ton an und aus.</dd>
         </dl>
@@ -112,7 +112,7 @@
 <div id="stick"><i></i></div>
 <div id="hint" onclick="window.interact()"></div>
 <div id="fps"></div>
-<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Pferd, Jeep, Hund, Hinsetzen | P: Foto | I: Bildrate | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
+<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Pferd, Jeep, Angeln, Hund, Hinsetzen | P: Foto | I: Bildrate | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
     <summary>Modelle &amp; Lizenzen</summary>
@@ -124,7 +124,7 @@
         „Low Poly Church“ von Yanez-Designs · „Windmill Stylized“ von a_l_e_x_a_n_d_e_r ·
         „Chicken – rigged“ von Maf'j Alvarez · „Lupe Goat“ von jackiebatteau · „Artia, the Walking Peasant“ von paolo.russo ·
         „Willys Jeep Low Poly“ von InnocentBaraka · „Wooden Boat“ von o0ozexo0o · „Boat“ von bumstrum · „Malpas Wooden Boat Wreck“ von artfletch.
-        Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Stockente von Jonathon Jongsma (CC BY-SA 3.0), Schafe von earthcalling (gemeinfrei), Glocke der Samariterkirche von Pete w. View und Rabenkrähe von Marie-Lan Taÿ Pamart (beide <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
+        Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Stockente von Jonathon Jongsma (CC BY-SA 3.0), Schafe von earthcalling und Hahn von alys (gemeinfrei), Kuh von MichaeltheFox8621 (CC BY-SA 4.0), Glocke der Samariterkirche von Pete w. View und Rabenkrähe von Marie-Lan Taÿ Pamart (beide <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
         Außerdem: „Cat“ von J-Toastie (CC BY 3.0, Poly Pizza), Dorf- und Tiermodelle von Quaternius (CC0), Texturen von Poly Haven (CC0), Bäume mit ez-tree.
     </p>
 </details>
@@ -229,7 +229,7 @@ const SkyFragmentShader = `
     varying vec3 vDir;
     uniform vec3 uTop; uniform vec3 uHorizon; uniform vec3 uSunDir; uniform vec3 uSunColor;
     uniform float uCloud; uniform float uStorm; uniform float uTime; uniform float uFlash;
-    uniform float uDay; uniform float uNight; uniform float uSunUp; uniform vec3 uMoonDir; uniform float uMoonVis;
+    uniform float uDay; uniform float uNight; uniform float uSunUp; uniform vec3 uMoonDir; uniform float uMoonVis; uniform float uAurora;
 
     float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
     float noise(vec2 p) {
@@ -279,6 +279,12 @@ const SkyFragmentShader = `
             sun *= 1.0 - dens;
             night *= 1.0 - dens * fade;
             col = mix(col, cloudCol, dens * fade * 0.94);
+        }
+        if (uAurora > 0.01 && d.y > 0.03) { // Polarlicht: grüne Vorhänge im Norden, oben ins Violette, langsam wandernd
+            vec2 av = vec2(d.x / (d.y + 0.35) * 1.3 + uTime * 0.015, d.y * 0.6 - uTime * 0.01);
+            float curtain = smoothstep(0.34, 0.56, fbm(av)) * (0.6 + 0.4 * sin(d.x * 40.0 + fbm(av * 3.0) * 12.0 + uTime * 0.6));
+            float zone = smoothstep(0.04, 0.3, d.y) * (1.0 - smoothstep(0.45, 0.85, d.y)) * smoothstep(-0.25, 0.4, -d.z);
+            col += mix(vec3(0.15, 1.0, 0.45), vec3(0.55, 0.3, 0.95), smoothstep(0.2, 0.7, d.y)) * curtain * zone * uAurora * 1.9;
         }
         col += sun + night * (1.0 - uStorm) + uFlash * vec3(0.7, 0.75, 0.9);
         gl_FragColor = vec4(col, 1.0);
@@ -640,6 +646,7 @@ async function init() {
 
     createSky();
     createRainbow();
+    createBalloon();
     createEnvLight();
     createTerrain();
     createWater();
@@ -739,6 +746,8 @@ async function init() {
     createShafts();
     createUndergrowth();
     createWheat();
+    createDust();
+    createGear();
     document.querySelector('#bar i').style.width = '100%';
     document.getElementById('loader').classList.add('done');
     // beide Beleuchtungen (Tag ohne, Nacht mit Punktlichtern) vorab übersetzen, damit es in der Dämmerung nicht ruckt
@@ -773,6 +782,36 @@ function updateRainbow(day) {
     rainbow.lookAt(camera.position.x, -16, camera.position.z);
 }
 
+// Heißluftballon: zieht in großen Kreisen über das Tal, der Brenner flackert
+let balloon = null;
+function createBalloon() {
+    const cv = document.createElement('canvas'); cv.width = 384; cv.height = 64;
+    const g2 = cv.getContext('2d'), cols = ['#d8402c', '#f3e9d2', '#e9b53a', '#f3e9d2', '#2f6fb0', '#f3e9d2'];
+    for (let i = 0; i < 12; i++) { g2.fillStyle = cols[i % cols.length]; g2.fillRect(i * 32, 0, 32, 64); }
+    g2.fillStyle = 'rgba(40,30,20,0.35)'; g2.fillRect(0, 26, 384, 5);
+    const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+    const env = new THREE.SphereGeometry(5, 28, 18), pos = env.attributes.position;
+    for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); if (y < 0) { const k = 1 - Math.pow(-y / 5, 1.6) * 0.68; pos.setXYZ(i, pos.getX(i) * k, y * 1.35, pos.getZ(i) * k); } } // unten zur Tropfenform zusammengezogen
+    env.computeVertexNormals();
+    balloon = new THREE.Group();
+    balloon.add(new THREE.Mesh(env, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 })));
+    const brown = new THREE.MeshStandardMaterial({ color: 0x6b4a2c, roughness: 1 });
+    const basket = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.0, 1.2), brown); basket.position.y = -9.6; balloon.add(basket);
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { // Seile vom Rand der Hülle zu den Ecken des Korbs
+        const a = new THREE.Vector3(sx * 1.1, -6.6, sz * 1.1), b = new THREE.Vector3(sx * 0.55, -9.1, sz * 0.55), rope = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, a.distanceTo(b), 4), brown);
+        rope.position.copy(a).add(b).multiplyScalar(0.5); rope.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()); balloon.add(rope);
+    }
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: softSprite(), color: 0xffa040, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    flame.position.y = -7.9; flame.scale.setScalar(1.6); balloon.add(flame); balloon.userData.flame = flame;
+    scene.add(balloon);
+}
+function updateBalloon(time) {
+    const a = time * 0.011 + 1.2;
+    balloon.position.set(30 + Math.cos(a) * 150, 62 + Math.sin(time * 0.045) * 9, 20 + Math.sin(a) * 120);
+    balloon.rotation.set(Math.sin(time * 0.3) * 0.03, a * 0.4, Math.cos(time * 0.23) * 0.03);
+    balloon.userData.flame.material.opacity = Math.max(0, Math.sin(time * 0.9)) * (0.6 + 0.4 * Math.sin(time * 23)); // der Brenner faucht in Stößen
+}
+
 function createSky() {
     const skyMat = new THREE.ShaderMaterial({
         side: THREE.BackSide, depthWrite: false, fog: false,
@@ -780,7 +819,7 @@ function createSky() {
             uTop: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() },
             uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunColor: { value: new THREE.Color() },
             uCloud: { value: 0.4 }, uStorm: { value: 0 }, uTime: { value: 0 }, uFlash: { value: 0 },
-            uDay: { value: 1 }, uNight: { value: 0 }, uSunUp: { value: 1 }, uMoonDir: { value: new THREE.Vector3(0, -1, 0) }, uMoonVis: { value: 0 }
+            uDay: { value: 1 }, uNight: { value: 0 }, uSunUp: { value: 1 }, uMoonDir: { value: new THREE.Vector3(0, -1, 0) }, uMoonVis: { value: 0 }, uAurora: { value: 0 }
         },
         vertexShader: SkyVertexShader,
         fragmentShader: SkyFragmentShader
@@ -1747,6 +1786,35 @@ function applySit(pl, astride = false) { // astride: im Sattel, die Beine hänge
         }
     }
 }
+// STAUB: wirbelt hinter dem fahrenden Jeep und dem galoppierenden Pferd auf, solange der Boden trocken ist
+const dust = { n: 96, i: 0, u: { uTime: { value: 0 }, uScale: { value: 600 }, uColor: { value: new THREE.Color(0.62, 0.55, 0.43) } }, mesh: null, wait: 0 };
+function createDust() {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(dust.n * 3), 3));
+    geo.setAttribute('aVel', new THREE.BufferAttribute(new Float32Array(dust.n * 3), 3));
+    geo.setAttribute('aBirth', new THREE.BufferAttribute(new Float32Array(dust.n).fill(-99), 1));
+    dust.mesh = new THREE.Points(geo, new THREE.ShaderMaterial({
+        uniforms: dust.u, transparent: true, depthWrite: false,
+        vertexShader: `attribute vec3 aVel; attribute float aBirth; uniform float uTime; uniform float uScale; varying float vA;
+            void main() {
+                float age = uTime - aBirth, t = clamp(age / 1.8, 0.0, 1.0);
+                vec3 p = position + aVel * age * (1.0 - 0.4 * t) + vec3(0.0, 0.55 * age, 0.0);
+                vec4 mv = modelViewMatrix * vec4(p, 1.0);
+                gl_Position = projectionMatrix * mv;
+                gl_PointSize = (0.5 + 2.0 * t) * uScale / -mv.z;
+                vA = (1.0 - t) * (1.0 - t) * step(age, 1.8) * smoothstep(0.0, 0.08, t);
+            }`,
+        fragmentShader: 'uniform vec3 uColor; varying float vA; void main() { gl_FragColor = vec4(uColor, smoothstep(0.5, 0.1, length(gl_PointCoord - 0.5)) * vA * 0.42); }'
+    }));
+    dust.mesh.frustumCulled = false; dust.mesh.layers.set(NO_MIRROR);
+    scene.add(dust.mesh);
+}
+function emitDust(x, y, z, vx, vz) {
+    if (!dust.mesh || state.wet > 0.4 || (S.frost ?? 0) > 0.5) return;
+    const g = dust.mesh.geometry, i = dust.i++ % dust.n;
+    g.attributes.position.setXYZ(i, x, y, z); g.attributes.aVel.setXYZ(i, vx + (Math.random() - 0.5) * 0.6, 0.2 + Math.random() * 0.3, vz + (Math.random() - 0.5) * 0.6); g.attributes.aBirth.setX(i, clock.elapsedTime);
+    g.attributes.position.needsUpdate = g.attributes.aVel.needsUpdate = g.attributes.aBirth.needsUpdate = true;
+}
 // JEEP: mit F einsteigen, die Lauftasten geben Gas und lenken, Shift fährt schneller; mit F wieder aussteigen
 const JEEP = { t: 0.37, off: 3.7, flip: Math.PI, seat: [0.4, 0.78, -0.46], wheelR: 0.385, grip: [0.16, 0.3, 0.38] }; // grip: Hände am Lenkrad relativ zur Hüfte (halbe Breite, hoch, vor) // Parkplatz am Weg; Fahrersitz: seitlich, hoch, nach vorn
 let jeep = null;
@@ -1773,6 +1841,7 @@ function driveJeep(pl, fwd, side, run, dt) {
     if (clear(nx, nz) && clear(nx + sh * dir * 1.6, nz + ch * dir * 1.6)) { j.x = nx; j.z = nz; } else j.speed *= -0.2; // Hindernis: kurz zurückfedern
     placeJeep(1 - Math.exp(-dt * 8));
     for (const w of j.wheels) w.rotation.x += j.speed * dt / JEEP.wheelR; // Räder rollen mit
+    if (Math.abs(j.speed) > 2 && (dust.wait -= dt) < 0) { dust.wait = 0.05; const sd = Math.random() < 0.5 ? -0.6 : 0.6; emitDust(j.x - sh * dir * 1.3 + ch * sd, j.y + 0.15, j.z - ch * dir * 1.3 - sh * sd, -sh * j.speed * 0.12, -ch * j.speed * 0.12); }
     // die Figur sitzt am Steuer
     pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95;
     pl.heading = j.heading;
@@ -1851,6 +1920,7 @@ function rideHorse(c, dt) {
     p.set(c.x - Math.sin(c.heading) * 0.12, c.gy + c.def.h * 0.72 - pl.hipH + Math.sin(c.stride * 4.5) * 0.02 * Math.min(1, speed), c.z - Math.cos(c.heading) * 0.12);
     if (speed > 0 && sound && (c.clop = (c.clop ?? 0) - dt * (speed > 3 ? 5 : 2.2)) < 0) { c.clop = 1; soundBurst('bandpass', 620 + Math.random() * 200, 2.5, 0.07, 0.06); soundBurst('bandpass', 560 + Math.random() * 200, 2.5, 0.05, 0.06, 0.11); } // Hufschlag
     c.stride += speed * dt;
+    if (speed > 3 && (dust.wait -= dt) < 0) { dust.wait = 0.1; emitDust(c.x - Math.sin(c.heading) * 0.7, c.gy + 0.1, c.z - Math.cos(c.heading) * 0.7, -Math.sin(c.heading) * 0.6, -Math.cos(c.heading) * 0.6); } // Galopp
 }
 const nearSeat = () => { const p = player?.model.position; return p && !player.boat ? seats.find((q) => (q.x - p.x) ** 2 + (q.z - p.z) ** 2 < 1.5 ** 2) ?? null : null; };
 function standUp() {
@@ -1858,6 +1928,43 @@ function standUp() {
     if (!q) return;
     pl.sitting = null;
     pl.model.position.x = q.x + Math.sin(q.face) * 0.55; pl.model.position.z = q.z + Math.cos(q.face) * 0.55;
+}
+// ANGELN: auf Steg oder Brücke mit F die Angel auswerfen; taucht der Schwimmer ab, schnell mit F einholen
+const gear = { rod: null, line: null, bob: null, caught: 0 };
+function createGear() {
+    gear.rod = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.016, 1, 6), new THREE.MeshStandardMaterial({ color: 0x8a6a3c, roughness: 0.8 }));
+    gear.line = new THREE.Line(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3)), new THREE.LineBasicMaterial({ color: 0xe8e8e0, transparent: true, opacity: 0.6 }));
+    gear.bob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshStandardMaterial({ color: 0xd8301c, roughness: 0.5 }));
+    for (const o of [gear.rod, gear.line, gear.bob]) { o.visible = false; o.frustumCulled = false; scene.add(o); }
+}
+const canFish = () => { const p = player?.model.position; return p && !player.boat && !player.horse && !player.jeep && !player.sitting && !!onDeck(p.x, p.z); };
+function startFishing() {
+    const pl = player, p = pl.model.position;
+    let best = null; // tiefste Stelle im Umkreis: dorthin fliegt der Schwimmer
+    for (let k = 0; k < 12; k++) for (const r of [2.6, 3.4]) { const x = p.x + Math.cos(k * 0.5236) * r, z = p.z + Math.sin(k * 0.5236) * r, h = heightAt(x, z); if (!onDeck(x, z) && h < WATER_LEVEL - 0.3 && (!best || h < best.h)) best = { x, z, h }; }
+    if (!best) return;
+    pl.heading = Math.atan2(best.x - p.x, best.z - p.z);
+    pl.fishing = { x: best.x, z: best.z, t: 0, bite: 5 + Math.random() * 11, biting: 0 };
+}
+function stopFishing() { if (player) player.fishing = null; for (const o of [gear.rod, gear.line, gear.bob]) if (o) o.visible = false; }
+const say = (text, secs = 2.2) => { const p = player.model.position; hello.c = { x: p.x, z: p.z, def: { h: 1.8 } }; hello.until = clock.elapsedTime + secs; document.getElementById('hello').textContent = text; };
+const rodA = new THREE.Vector3(), rodB = new THREE.Vector3(), rodUp = new THREE.Vector3(0, 1, 0);
+function updateFishing(pl, dt, time) {
+    const f = pl.fishing, p = pl.model.position, sh = Math.sin(pl.heading), ch = Math.cos(pl.heading);
+    f.t += dt;
+    if (!f.biting && f.t > f.bite) { f.biting = 2.4; addRipple(f.x, f.z, 0.8); if (sound) soundBurst('bandpass', 1500, 0.6, 0.08, 0.25, 0, 500); } // Biss!
+    if (f.biting && (f.biting -= dt) <= 0) { f.biting = 0; f.t = 0; f.bite = 5 + Math.random() * 11; say('Entwischt …'); }
+    // rechte Hand hält die Rute nach vorn, die Schnur läuft von der Spitze zum Schwimmer
+    reachHand(pl, 'Right', rodA.set(p.x + sh * 0.42 - ch * 0.2, p.y + 1.18, p.z + ch * 0.42 + sh * 0.2));
+    const hand = pl.bones.RightHand;
+    if (hand) rodA.setFromMatrixPosition(hand.matrixWorld);
+    rodB.set(rodA.x + sh * 1.5, rodA.y + 1.0 - (f.biting ? 0.25 : 0), rodA.z + ch * 1.5);
+    const len = rodA.distanceTo(rodB);
+    gear.rod.position.copy(rodA).add(rodB).multiplyScalar(0.5); gear.rod.scale.set(1, len, 1); gear.rod.quaternion.setFromUnitVectors(rodUp, tmpV.copy(rodB).sub(rodA).normalize());
+    gear.bob.position.set(f.x, WATER_LEVEL + 0.02 + Math.sin(time * 2.4) * 0.012 - (f.biting ? 0.09 + 0.03 * Math.sin(time * 30) : 0), f.z);
+    const lp = gear.line.geometry.attributes.position;
+    lp.setXYZ(0, rodB.x, rodB.y, rodB.z); lp.setXYZ(1, f.x, gear.bob.position.y, f.z); lp.needsUpdate = true;
+    for (const o of [gear.rod, gear.line, gear.bob]) o.visible = true;
 }
 const nearDog = () => { const p = player?.model.position; return p && !player.boat ? critters.find((c) => c.def.follow && (c.x - p.x) ** 2 + (c.z - p.z) ** 2 < 1.9 ** 2) ?? null : null; };
 function nearBoat() {
@@ -1874,6 +1981,10 @@ function interact() {
             if ((heightAt(x, z) > WATER_LEVEL - 0.12 || onDeck(x, z)?.low) && walkable(x, z, Infinity)) { pl.boat.userData.speed = 0; pl.boat = null; p.x = x; p.z = z; return; }
         }
         return;
+    }
+    if (pl.fishing) { // beim Biss einholen, sonst zusammenpacken
+        if (pl.fishing.biting) { gear.caught++; say(gear.caught === 1 ? 'Ein Fisch!' : `Noch ein Fisch! (${gear.caught})`, 3); if (sound) soundBurst('bandpass', 1200, 0.6, 0.1, 0.3, 0, 400); }
+        return stopFishing();
     }
     if (pl.sitting) return standUp();
     if (pl.jeep) return leaveJeep();
@@ -1892,6 +2003,7 @@ function interact() {
     if (horse) { pl.horse = horse; horse.ridden = true; return; }
     const seat = nearSeat();
     if (seat) { pl.sitting = seat; pl.heading = seat.face; return; }
+    if (canFish() && S.ice < 0.5) { startFishing(); if (pl.fishing) return; }
     // der Hund zuletzt: er läuft der Figur ständig nach und soll die anderen Dinge nicht verdecken
     const dog = nearDog();
     if (dog) { // streicheln: der Hund setzt sich kurz und bellt freudig
@@ -1907,7 +2019,8 @@ window.closeIntro = () => { document.getElementById('intro').classList.add('gone
 function updateHint() {
     const el = document.getElementById('hint'), key = touch.used ? 'Tippen' : 'F';
     let text = '';
-    if (player?.boat) text = `${key}: Aussteigen (am Ufer)`;
+    if (player?.fishing) text = player.fishing.biting ? `${key}: Es beißt! Einholen` : `${key}: Angel einpacken`;
+    else if (player?.boat) text = `${key}: Aussteigen (am Ufer)`;
     else if (player?.sitting) text = `${key}: Aufstehen`;
     else if (player?.horse) text = `${key}: Absteigen`;
     else if (player?.jeep) text = `${key}: Aussteigen`;
@@ -1917,6 +2030,7 @@ function updateHint() {
     else if (nearJeep()) text = `${key}: In den Jeep steigen`;
     else if (nearHorse()) text = `${key}: Aufs Pferd steigen`;
     else if (nearSeat()) text = `${key}: Hinsetzen`;
+    else if (canFish()) text = S.ice < 0.5 ? `${key}: Angeln` : 'Der Fluss ist zugefroren';
     else if (nearDog()) text = `${key}: Hund streicheln`;
     if (text !== el.textContent) { el.textContent = text; el.style.display = text ? 'block' : 'none'; }
 }
@@ -1934,6 +2048,7 @@ function updatePlayer(dt) {
         pl.moving += ((wantsMove && !pl.boat && !pl.sitting && !pl.horse && !pl.jeep ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
         pl.running += ((wantsRun ? 1 : 0) - pl.running) * (1 - Math.exp(-dt * 6));
         if (pl.sitting && wantsMove) standUp(); // loslaufen heißt aufstehen
+        if (pl.fishing && wantsMove) stopFishing();
         if (pl.boat) rowBoat(pl, fwd, side, dt);
         else if (pl.sitting) { p.x = pl.sitting.x; p.z = pl.sitting.z; }
         else if (pl.horse) { /* Ort und Richtung setzt rideHorse */ }
@@ -1971,6 +2086,7 @@ function updatePlayer(dt) {
         pl.sit = (pl.sit ?? 0) + ((pl.sitting ? 1 : 0) - (pl.sit ?? 0)) * (1 - Math.exp(-dt * 7));
         if (pl.horse) applySit(pl, true);
         if (pl.jeep) { applySit(pl); holdWheel(pl); }
+        if (pl.fishing) updateFishing(pl, dt, clock.elapsedTime);
         if (pl.sitting) { pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95; p.y += (pl.sitting.h + 0.1 - pl.hipH) * pl.sit; applySit(pl); }
 
         pl.blink -= dt;
@@ -2925,7 +3041,15 @@ function createLots(wood) {
             log(q.x, 0.11 + row * 0.175, q.z, 0.095, 0.9, 0.095, face, Math.PI / 2);
         }
     }
-    return { flowerBed };
+    // Sonnenblume: mannshoch, der Kopf neigt sich zur Sonne
+    const sunflower = (x, z, ry) => {
+        const hh = 1.45 + rnd() * 0.5, r = 0.17 + rnd() * 0.05;
+        stalk(x, hh / 2, z, 0.016, hh, 0.016, 0, 0, 0x4f8a34);
+        for (const k of [0.3, 0.52, 0.72]) leaves(x, hh * k, z, 0.3, 0.3, 0.3, ry + k * 9, 0, 0x4a8a30);
+        heads[0](x, hh, z, r, r, r, ry, 0.95, 0xf2c21e);
+        centre(x, hh + 0.01, z, r * 0.42, r * 0.14, r * 0.42, ry, 0.95, 0x4a3018);
+    };
+    return { flowerBed, sunflower };
 }
 
 async function createVillage() {
@@ -3041,6 +3165,10 @@ async function createVillage() {
             for (const sd of [-1, 1]) {
                 const bx = b.x + Math.sin(b.face) * (R - 0.75) + Math.cos(b.face) * sd * 2.3, bz = b.z + Math.cos(b.face) * (R - 0.75) - Math.sin(b.face) * sd * 2.3;
                 if (heightAt(bx, bz) > WATER_LEVEL + 0.4) garden.flowerBed(bx, bz, 2.0, 0.5, b.face);
+            }
+            for (let k = 0; k < 6; k++) { // eine Reihe Sonnenblumen innen am Zaun, auf der Seite gegenüber dem Durchgang
+                const a = gate + Math.PI + (k - 2.5) * 0.9 / R, sx = b.x + Math.cos(a) * (R - 0.55), sz = b.z + Math.sin(a) * (R - 0.55);
+                if (heightAt(sx, sz) > WATER_LEVEL + 0.4) garden.sunflower(sx, sz, Math.atan2(-1, -0.3));
             }
         }
         const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.06, 1.05, 6), wood, segs.length * 2), rails = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.07, 0.04), wood, segs.length * 2);
@@ -3248,6 +3376,48 @@ async function createVillage() {
         placeJeep(1);
         scene.add(g);
     } catch (err) { console.warn('Modell fehlt: jeep', err); }
+    // Jahreszeiten im Dorf: Schneemann im Winter, Kürbisse im Herbst, Maibaum im Frühling
+    const seasonal = { snowman: new THREE.Group(), pumpkins: null, maypole: new THREE.Group() };
+    {
+        const mk = (geo, color, x, y, z, parent, rough = 0.9) => { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: rough })); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+        const ball = new THREE.SphereGeometry(1, 16, 12), sp = roadPoint(0.47, 8.8), sm = seasonal.snowman; // auf dem Dorfplatz neben dem Brunnen
+        sm.position.set(sp.x, heightAt(sp.x, sp.z), sp.z); sm.rotation.y = sp.face;
+        for (const [r, y] of [[0.42, 0.36], [0.31, 0.92], [0.22, 1.36]]) mk(ball, 0xf4f7fb, 0, y, 0, sm).scale.setScalar(r);
+        mk(new THREE.ConeGeometry(0.035, 0.2, 8).rotateX(Math.PI / 2), 0xe8792a, 0, 1.36, 0.3, sm);
+        for (const sx of [-0.08, 0.08]) mk(ball, 0x15120f, sx, 1.43, 0.19, sm).scale.setScalar(0.025);
+        for (const y of [0.8, 0.95, 1.08]) mk(ball, 0x15120f, 0, y, 0.3, sm).scale.setScalar(0.028);
+        for (const sx of [-1, 1]) { const arm = mk(new THREE.CylinderGeometry(0.012, 0.016, 0.55, 5), 0x4a3422, sx * 0.48, 1.02, 0, sm); arm.rotation.z = sx * 1.1; }
+        mk(new THREE.CylinderGeometry(0.17, 0.17, 0.2, 14), 0x1b1b20, 0, 1.64, 0, sm); mk(new THREE.CylinderGeometry(0.26, 0.26, 0.025, 14), 0x1b1b20, 0, 1.54, 0, sm);
+        obstacles.push({ x: sp.x, z: sp.z, r: 0.5 });
+        // Kürbisse neben den Haustüren und am Lagerplatz
+        const spots = [...LOTS.flatMap((l) => [lotW(l, l.i % 2 ? 1.5 : -1.5, 4.1), lotW(l, l.i % 2 ? 1.95 : -1.95, 3.85), lotW(l, lotSide(l) * 2.9, -4.6)]), { x: CAMP.x - 1.2, z: CAMP.z + 1.9 }, { x: CAMP.x - 1.7, z: CAMP.z + 1.6 }];
+        const pk = new THREE.SphereGeometry(1, 14, 10), pp = pk.attributes.position;
+        for (let i = 0; i < pp.count; i++) { const a = Math.atan2(pp.getZ(i), pp.getX(i)), k = 1 - 0.07 * Math.abs(Math.sin(a * 5)); pp.setXYZ(i, pp.getX(i) * k, pp.getY(i) * 0.72, pp.getZ(i) * k); } // Rippen
+        pk.computeVertexNormals();
+        const pumpkins = new THREE.InstancedMesh(pk, new THREE.MeshStandardMaterial({ roughness: 0.6 }), spots.length), stems = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.2, 0.3, 1, 6), new THREE.MeshStandardMaterial({ color: 0x5a6a2a, roughness: 0.9 }), spots.length);
+        const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
+        spots.forEach((o, i) => {
+            const r = 0.13 + rnd() * 0.1, y = heightAt(o.x, o.z);
+            pumpkins.setMatrixAt(i, m4.compose(v.set(o.x, y + r * 0.68, o.z), q.setFromEuler(new THREE.Euler(0, rnd() * 6, (rnd() - 0.5) * 0.2)), sc.setScalar(r)));
+            pumpkins.setColorAt(i, col.setHSL(0.06 + rnd() * 0.035, 0.85, 0.48 + rnd() * 0.08));
+            stems.setMatrixAt(i, m4.compose(v.set(o.x, y + r * 1.42, o.z), q.identity(), sc.set(r * 0.35, r * 0.4, r * 0.35)));
+        });
+        pumpkins.castShadow = pumpkins.receiveShadow = true; pumpkins.frustumCulled = stems.frustumCulled = false;
+        seasonal.pumpkins = new THREE.Group(); seasonal.pumpkins.add(pumpkins, stems);
+        // Maibaum auf dem Dorfplatz: geringelter Stamm, Kranz mit bunten Bändern
+        const mp = seasonal.maypole, mq = roadPoint(0.49, 8.2), cv = document.createElement('canvas'); cv.width = 32; cv.height = 256;
+        const g2 = cv.getContext('2d'); g2.fillStyle = '#f2efe6'; g2.fillRect(0, 0, 32, 256); g2.fillStyle = '#2f62b8';
+        for (let k = -2; k < 12; k++) { g2.beginPath(); g2.moveTo(0, k * 28); g2.lineTo(32, k * 28 + 28); g2.lineTo(32, k * 28 + 42); g2.lineTo(0, k * 28 + 14); g2.fill(); } // blau-weiße Spirale
+        const spiral = new THREE.CanvasTexture(cv); spiral.colorSpace = THREE.SRGBColorSpace;
+        mp.position.set(mq.x, heightAt(mq.x, mq.z), mq.z);
+        const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 7.5, 12), new THREE.MeshStandardMaterial({ map: spiral, roughness: 0.8 })); pole.position.y = 3.75; pole.castShadow = true; mp.add(pole);
+        const wreath = mk(new THREE.TorusGeometry(0.75, 0.09, 8, 28).rotateX(Math.PI / 2), 0x3f7a2c, 0, 6.1, 0, mp);
+        mk(new THREE.ConeGeometry(0.3, 0.9, 8), 0x3f7a2c, 0, 7.9, 0, mp);
+        const ribbons = [0xd8402c, 0xf2c21e, 0xf4f1ea, 0x2f62b8, 0xd8402c, 0xf2c21e, 0xf4f1ea, 0x2f62b8];
+        seasonal.ribbons = ribbons.map((color, k) => { const a = k / ribbons.length * Math.PI * 2, rb = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 1.5).translate(0, -0.75, 0), new THREE.MeshStandardMaterial({ color, roughness: 0.8, side: THREE.DoubleSide })); rb.position.set(Math.cos(a) * 0.75, 6.05, Math.sin(a) * 0.75); rb.rotation.y = -a; mp.add(rb); return rb; });
+        obstacles.push({ x: mq.x, z: mq.z, r: 0.35 });
+        scene.add(sm, seasonal.pumpkins, mp);
+    }
     // Wegweiser an den Abzweigungen: Bretter zeigen in die Richtung des Ziels, von beiden Seiten lesbar
     const board = (text) => {
         const cv = document.createElement('canvas'); cv.width = 512; cv.height = 112;
@@ -3381,7 +3551,7 @@ async function createVillage() {
     }
     const sources = [...lamps.map((l) => ({ pos: l.position, power: l.userData.power ?? 45, color: 0xffa24a })), ...lanterns.map((q) => ({ pos: q.pos, power: 30, color: 0xffa24a })), { pos: fire.pos, power: 26, color: 0xff8a3a, fire: true }];
     if (jeep) sources.push({ pos: jeep.lightPos, power: 60, color: 0xfff0d0, on: () => !!player?.jeep }); // leuchtet nur, wenn jemand am Steuer sitzt
-    village = { glow, lamps, cats, fallLeaves, boats, mills, smokeU, lanterns, lightPool, sources, fire, flies };
+    village = { glow, lamps, cats, fallLeaves, boats, mills, smokeU, lanterns, lightPool, sources, fire, flies, seasonal };
 }
 const night0 = (day) => 1 - smooth(0.15, 0.6, day);
 function updateVillage(day, dt) {
@@ -3392,6 +3562,7 @@ function updateVillage(day, dt) {
     su.uAmount.value = 0.38 + 0.4 * S.frost + 0.2 * night0(day);
     su.uScale.value = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     su.uColor.value.setScalar(lerp(0.1, 0.78, day));
+    dust.u.uTime.value = clock.elapsedTime; dust.u.uScale.value = su.uScale.value; dust.u.uColor.value.setRGB(0.62, 0.55, 0.43).multiplyScalar(lerp(0.15, 1, day));
     // Lagerfeuer flackert; nachts trägt sein Licht weit, am Tag kaum
     const ft = clock.elapsedTime;
     village.fire.u.uTime.value = ft;
@@ -3405,6 +3576,12 @@ function updateVillage(day, dt) {
     const night = 1 - smooth(0.15, 0.6, day); // Lichter gehen in der Dämmerung an
     for (const m of village.glow) m.emissiveIntensity = night * 2.2;
     for (const m of village.fallLeaves) m.visible = S.autumn > 0.3;
+    // Schneemann, Kürbisse und Maibaum erscheinen in ihrer Jahreszeit
+    const sn = village.seasonal;
+    sn.snowman.visible = S.snowiness > 0.25; sn.snowman.scale.setScalar(0.3 + 0.7 * smooth(0.25, 0.9, S.snowiness));
+    sn.pumpkins.visible = S.autumn > 0.35;
+    sn.maypole.visible = S.spring > 0.5;
+    if (sn.maypole.visible) sn.ribbons.forEach((rb, k) => { rb.rotation.x = Math.sin(clock.elapsedTime * 1.7 + k) * (0.12 + state.wind * 0.35); }); // Bänder wehen
     for (const b of village.boats) { // schaukeln leicht, im Eis liegen sie still
         const t = clock.elapsedTime * 1.2 + b.position.z, calm = 1 - S.ice;
         b.position.y = b.userData.y + Math.sin(t) * 0.025 * calm; b.rotation.z = Math.sin(t * 0.7) * 0.035 * calm;
@@ -3926,7 +4103,7 @@ function startSound() {
         bird: 1, crickets: [], step: 0 };
     // Aufnahmen für Laute, die sich schlecht erzeugen lassen (Hund, Glocke); fehlen sie, bleibt es beim erzeugten Klang
     sound.samples = {};
-    for (const name of ['bark1.ogg', 'bark2.ogg', 'bell.ogg', 'crow.mp3', 'duck.mp3', 'sheep.ogg']) fetch(`sounds/${name}`).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((b) => { sound.samples[name.split('.')[0]] = b; }).catch(() => {});
+    for (const name of ['bark1.ogg', 'bark2.ogg', 'bell.ogg', 'crow.mp3', 'duck.mp3', 'sheep.ogg', 'rooster.ogg', 'cow.ogg']) fetch(`sounds/${name}`).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((b) => { sound.samples[name.split('.')[0]] = b; }).catch(() => {});
     // Grillen: mehrere Tiere, jedes mit eigener Tonhöhe und eigenem Platz; gezirpt wird in updateSound in kurzen Dreierstößen
     sound.crickets = Array.from({ length: 5 }, () => {
         const osc = ctx.createOscillator(), g = ctx.createGain(), pan = ctx.createStereoPanner?.() ?? ctx.createGain();
@@ -4033,6 +4210,10 @@ function updateSound(dt, day, rainAmt) {
     if (hour !== sound.hour) {
         const first = sound.hour === undefined;
         sound.hour = hour;
+        if (!first && (hour === 5 || hour === 6)) { // der Hahn kräht zum Sonnenaufgang
+            const coop = BUILDINGS.find((b) => b.file === 'coop'), cv = 0.24 * smooth(170, 10, Math.hypot(pp.x - coop.x, pp.z - coop.z));
+            if (cv > 0.01) playSample('rooster', cv, 2.85, 2.6);
+        }
         if (!first && hour >= 6 && hour <= 18 && hour % 3 === 0 && now > (sound.rang ?? -99) + 9) { sound.rang = now; // alle drei Stunden, also etwa alle anderthalb Minuten
             const ch = BUILDINGS.find((b) => b.file === 'church'), vol = 0.16 * smooth(260, 15, Math.hypot(pp.x - ch.x, pp.z - ch.z));
             if (vol > 0.004) bell(0, vol); // ein einzelner Schlag
@@ -4048,6 +4229,11 @@ function updateSound(dt, day, rainAmt) {
     if (dFire < 16 && (sound.crackle = (sound.crackle ?? 0) - dt) < 0) {
         sound.crackle = 0.05 + Math.random() * 0.35;
         soundBurst('bandpass', 1800 + Math.random() * 3500, 3, 0.11 * smooth(16, 2, dFire) * (0.3 + Math.random()), 0.03 + Math.random() * 0.05);
+    }
+    if ((sound.cow = (sound.cow ?? 20) - dt) < 0) { // die Kühe im Pferch muhen tagsüber
+        sound.cow = 25 + Math.random() * 50;
+        const vol = 0.42 * smooth(95, 6, Math.hypot(pp.x - PEN.x, pp.z - PEN.z));
+        if (vol > 0.02 && day > 0.2) playSample('cow', vol, 0.9, 1.75, 0.9 + Math.random() * 0.2);
     }
     if ((sound.sheep = (sound.sheep ?? 14) - dt) < 0) { // die Schafe blöken, lauter je näher man der Herde ist
         sound.sheep = 14 + Math.random() * 36;
@@ -4115,6 +4301,7 @@ function blendSeason(pos) {
     }
     S.autumn = i0 === 2 ? 1 - smooth(0.7, 1, fr) : (i1 === 2 ? f : 0);
     S.snowiness = smooth(0.5, 1, i1 === 3 ? f : (i0 === 3 ? 1 - f : 0));
+    S.spring = i0 === 0 ? 1 - f : (i1 === 0 ? f : 0);
 }
 
 function onWindowResize() {
@@ -4190,6 +4377,7 @@ function animate() {
     su.uSunColor.value.copy(sunNow);
     su.uDay.value = lerp(0.16, 1, day);
     su.uNight.value = 1 - day;
+    su.uAurora.value = S.frost * (1 - day) * (1 - state.weather); // nur in klaren Winternächten
     su.uSunUp.value = smooth(-0.25, 0, sunY);
     su.uMoonDir.value.copy(moonDir);
     su.uMoonVis.value = smooth(-0.05, 0.12, -sunY) * (1 - day);
@@ -4270,6 +4458,7 @@ function animate() {
     updateBeaver(dt, time);
     updateDucks(dt, time);
     updateRainbow(day);
+    updateBalloon(time);
     updateHint();
     nightNow = 1 - smooth(0.15, 0.6, day);
     updateCritters(dt, time);
