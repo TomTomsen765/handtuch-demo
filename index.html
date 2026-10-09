@@ -75,7 +75,7 @@
         „Low Poly Church“ von Yanez-Designs · „Windmill Stylized“ von a_l_e_x_a_n_d_e_r ·
         „Chicken – rigged“ von Maf'j Alvarez · „Lupe Goat“ von jackiebatteau · „Artia, the Walking Peasant“ von paolo.russo ·
         „Wooden Boat“ von o0ozexo0o · „Boat“ von bumstrum · „Malpas Wooden Boat Wreck“ von artfletch.
-        Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Glocke des Schlosses Winsen von Andree Werder (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
+        Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Glocke der Samariterkirche von Pete w. View und Rabenkrähe von Marie-Lan Taÿ Pamart (beide <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
         Außerdem: „Cat“ von J-Toastie (CC BY 3.0, Poly Pizza), Dorf- und Tiermodelle von Quaternius (CC0), Texturen von Poly Haven (CC0), Bäume mit ez-tree.
     </p>
 </details>
@@ -340,8 +340,8 @@ function heightAt(x, z) {
 }
 // Gebäude stehen abwechselnd links und rechts am Weg: Stelle am Weg (t), Seite/Abstand (off), Zielhöhe, Platzbedarf
 const BUILDINGS = [
-    // "Autumn House" von Zhenya (sketchfab.com/zhenyarech), CC-BY 4.0 – aus dem Diorama bleiben Haus und Auto; crop: Ausschnitt im Modell, pads: Hindernisse entlang des Grundrisses
-    { file: 'autumnhouse', t: 0.07, off: -12, h: 6, r: 5.4, rot: -Math.PI / 2, own: true, crop: [-21, -0.5, -14.5, 14.6], car: [3.5, -7.2], porch: [-4.6, 9.6, 4.4], pads: [[0, -3.3], [0, 0], [0, 3.3]], padR: 3 },
+    // "Autumn House" von Zhenya (sketchfab.com/zhenyarech), CC-BY 4.0 – aus dem Diorama bleibt nur das Haus; crop: Ausschnitt im Modell, floor: Höhe der Hausunterkante im Modell (Steine und Laub des Dioramas liegen tiefer), pads: Hindernisse entlang des Grundrisses
+    { file: 'autumnhouse', t: 0.07, off: -12, h: 5.4, r: 5.4, rot: -Math.PI / 2, own: true, floor: 1.78, crop: [-21, -0.5, -14.5, 14.6], porch: [-4.6, 9.6, 4.4], pads: [[0, -3.3], [0, 0], [0, 3.3]], padR: 3 },
     // "Low Poly Church" von Yanez-Designs und "Windmill Stylized" von a_l_e_x_a_n_d_e_r (beide sketchfab.com, CC-BY 4.0)
     { file: 'church', t: 0.41, off: 15, h: 12, r: 3, own: true, pads: [[-3.2, 0], [0, 0], [3.2, 0]], padR: 2.6 },
     { file: 'windmill', t: 0.5, off: -34, h: 12, r: 2.6, rot: -Math.PI / 2, own: true, clear: 12 }, // clear: Lichtung, damit die Flügel frei drehen
@@ -2310,6 +2310,7 @@ async function createVillage() {
             if (o.isSkinnedMesh) { o.skeleton.update(); o.computeBoundingBox(); box.union(mb.copy(o.boundingBox).applyMatrix4(o.matrixWorld)); o.frustumCulled = false; }
             else box.expandByObject(o);
         });
+        if (b.floor !== undefined) box.min.y = b.floor; // sonst schwebt das Haus über dem Boden
         if (gltf.animations.length) { const mx = new THREE.AnimationMixer(m); mx.clipAction(gltf.animations[0]).play(); mixers.push(mx); mills.push(mx); } // Mühlenflügel
         const sc = b.h / (box.max.y - box.min.y);
         m.scale.multiplyScalar(sc);
@@ -2317,7 +2318,7 @@ async function createVillage() {
         const holder = new THREE.Group();
         m.position.set(-(box.min.x + box.max.x) / 2 * sc, -box.min.y * sc, -(box.min.z + box.max.z) / 2 * sc);
         holder.add(m);
-        if (car) {
+        if (car && b.car) {
             const cb = new THREE.Box3().setFromBufferAttribute(car.geometry.attributes.position), cc = cb.getCenter(new THREE.Vector3());
             car.geometry.translate(-cc.x, -cb.min.y, -cc.z);
             car.position.set(b.car[0], box.min.y, b.car[1]); car.rotation.set(0, Math.PI / 2, 0); car.scale.setScalar(0.75);
@@ -2349,7 +2350,7 @@ async function createVillage() {
         });
         scene.add(holder);
         for (const [px, pz] of b.pads ?? [[0, 0]]) { const q = holder.localToWorld(new THREE.Vector3(px, 0, pz)); obstacles.push({ x: q.x, z: q.z, r: b.padR ?? b.r }); }
-        if (car) { const q = car.getWorldPosition(new THREE.Vector3()); obstacles.push({ x: q.x, z: q.z, r: 1.5 }); }
+        if (car && b.car) { const q = car.getWorldPosition(new THREE.Vector3()); obstacles.push({ x: q.x, z: q.z, r: 1.5 }); }
         if (b.porch) porches.push(m.localToWorld(new THREE.Vector3(...b.porch)));
     }));
 
@@ -2941,7 +2942,7 @@ function startSound() {
         bird: 1, crickets: [], step: 0 };
     // Aufnahmen für Laute, die sich schlecht erzeugen lassen (Hund, Glocke); fehlen sie, bleibt es beim erzeugten Klang
     sound.samples = {};
-    for (const name of ['bark1', 'bark2', 'bell1']) fetch(`sounds/${name}.ogg`).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((b) => { sound.samples[name] = b; }).catch(() => {});
+    for (const name of ['bark1.ogg', 'bark2.ogg', 'bell.ogg', 'crow.mp3']) fetch(`sounds/${name}`).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((b) => { sound.samples[name.split('.')[0]] = b; }).catch(() => {});
     // Grillen: mehrere Tiere, jedes mit eigener Tonhöhe und eigenem Platz; gezirpt wird in updateSound in kurzen Dreierstößen
     sound.crickets = Array.from({ length: 5 }, () => {
         const osc = ctx.createOscillator(), g = ctx.createGain(), pan = ctx.createStereoPanner?.() ?? ctx.createGain();
@@ -2960,7 +2961,7 @@ function soundBurst(type, freq, q, gain, dur, delay = 0, sweepTo = null) { // ku
     src.connect(f).connect(g).connect(sound.master); src.start(t, Math.random() * 2); src.stop(t + dur + 0.05);
 }
 function bell(delay, gain) { // Glockenschlag: unharmonische Teiltöne, die unterschiedlich schnell verklingen
-    if (playSample('bell1', gain * 2.8, 1.86, 4.4, 0.8, delay)) return;
+    if (playSample('bell', gain * 5, 0.14, 6, 1, delay)) return;
     const { ctx } = sound, t = ctx.currentTime + delay;
     for (const [mul, amp, dur] of [[0.5, 0.5, 3.6], [1, 1, 2.8], [1.19, 0.6, 2.2], [1.5, 0.45, 1.8], [2, 0.35, 1.4], [2.51, 0.22, 1.0], [3.01, 0.12, 0.7]]) {
         const o = ctx.createOscillator(), g = ctx.createGain();
@@ -2982,13 +2983,14 @@ function voiced(shape, f0, f1, dur, gain, delay, bandHz, q, pan = 0, rasp = 0) {
     }
     o.connect(f).connect(g).connect(p).connect(sound.master); o.start(t); o.stop(t + dur + 0.05);
 }
-function playSample(name, gain, offset, dur, rate = 1, delay = 0) { // Ausschnitt einer Aufnahme; false, wenn sie (noch) nicht geladen ist
+function playSample(name, gain, offset, dur, rate = 1, delay = 0, pan = 0) { // Ausschnitt einer Aufnahme; false, wenn sie (noch) nicht geladen ist
     const buf = sound.samples?.[name];
     if (!buf) return false;
-    const { ctx } = sound, t = ctx.currentTime + delay, src = ctx.createBufferSource(), g = ctx.createGain(), len = dur / rate;
+    const { ctx } = sound, t = ctx.currentTime + delay, src = ctx.createBufferSource(), g = ctx.createGain(), p = ctx.createStereoPanner?.() ?? ctx.createGain(), len = dur / rate;
     src.buffer = buf; src.playbackRate.value = rate;
+    if (p.pan) p.pan.value = pan;
     g.gain.setValueAtTime(gain, t); g.gain.setValueAtTime(gain, t + len - 0.06); g.gain.linearRampToValueAtTime(0, t + len);
-    src.connect(g).connect(sound.master); src.start(t, offset, dur);
+    src.connect(g).connect(p).connect(sound.master); src.start(t, offset, dur);
     return true;
 }
 // Stellen der einzelnen Beller in den Aufnahmen (Sekunden)
@@ -3001,8 +3003,11 @@ function bark(gain, pitch) { // zwei, drei kurze Beller
         soundBurst('bandpass', pitch * 3, 0.8, gain * 0.35, 0.11, t);
     }
 }
+const CAWS = [0.15, 0.75, 1.3, 1.9, 2.5, 3.25]; // Stellen der einzelnen Rufe in der Aufnahme (Sekunden)
 function caw(gain) { // Krähe irgendwo über den Bäumen
     const pan = Math.random() * 2 - 1, f = 560 + Math.random() * 140;
+    const i = Math.floor(Math.random() * (CAWS.length - 1)), n = Math.min(CAWS.length - i, 2 + Math.floor(Math.random() * 3));
+    if (playSample('crow', gain * 1.6, CAWS[i], CAWS[i + n - 1] + 0.55 - CAWS[i], 0.94 + Math.random() * 0.12, 0, pan)) return;
     for (let k = 0, n = 2 + Math.floor(Math.random() * 3), t = 0; k < n; k++, t += 0.4 + Math.random() * 0.12) voiced('sawtooth', f, f * 0.8, 0.3, gain, t, 1500, 2.2, pan, 55);
 }
 function chirp() { // Vogelruf: ein paar rasch gleitende Pfeiftöne
@@ -3045,8 +3050,8 @@ function updateSound(dt, day, rainAmt) {
         const first = sound.hour === undefined;
         sound.hour = hour;
         if (!first && hour >= 6 && hour <= 18 && hour % 3 === 0 && now > (sound.rang ?? -99) + 9) { sound.rang = now; // alle drei Stunden, also etwa alle anderthalb Minuten
-            const ch = BUILDINGS.find((b) => b.file === 'church'), vol = 0.16 * smooth(170, 12, Math.hypot(pp.x - ch.x, pp.z - ch.z));
-            for (let k = 0; k < 4 && vol > 0.004; k++) bell(k * 1.7, vol);
+            const ch = BUILDINGS.find((b) => b.file === 'church'), vol = 0.16 * smooth(260, 15, Math.hypot(pp.x - ch.x, pp.z - ch.z));
+            for (let k = 0; k < 4 && vol > 0.004; k++) bell(k * 2.3, vol);
         }
     }
     // ab und zu bellt ein Dorfhund, ab und zu krächzen Krähen
