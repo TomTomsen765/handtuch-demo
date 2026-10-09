@@ -81,7 +81,7 @@
 <div id="hello"></div>
 <div id="stick"><i></i></div>
 <div id="hint" onclick="window.interact()"></div>
-<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Hund, Hinsetzen | P: Foto | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
+<div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Pferd, Hund, Hinsetzen | P: Foto | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
     <summary>Modelle &amp; Lizenzen</summary>
@@ -1656,14 +1656,45 @@ function aimBone(bone, child, target) {
     const turn = sitQ[0].setFromUnitVectors(from, target), world = bone.getWorldQuaternion(sitQ[1]), parent = bone.parent.getWorldQuaternion(sitQ[2]);
     bone.quaternion.copy(parent.invert().multiply(turn.multiply(world)));
 }
-function applySit(pl) {
+function applySit(pl, astride = false) { // astride: im Sattel, die Beine hängen links und rechts am Pferd herab
     const b = pl.bones, sh = Math.sin(pl.heading), ch = Math.cos(pl.heading);
     for (const [side, sp] of [['Left', 1], ['Right', -1]]) {
         const thigh = b[side + 'UpLeg'], shin = b[side + 'Leg'], foot = b[side + 'Foot'];
         if (!thigh || !shin || !foot) return;
-        aimBone(thigh, shin, sitV[2].set(sh + ch * 0.12 * sp, 0.06, ch - sh * 0.12 * sp).normalize());
-        aimBone(shin, foot, sitV[2].set(sh * 0.12, -1, ch * 0.12).normalize());
+        const lx = -ch * sp, lz = sh * sp; // zur jeweiligen Körperseite
+        if (astride) {
+            aimBone(thigh, shin, sitV[2].set(sh * 0.45 + lx * 0.6, -0.62, ch * 0.45 + lz * 0.6).normalize());
+            aimBone(shin, foot, sitV[2].set(-sh * 0.22 + lx * 0.08, -1, -ch * 0.22 + lz * 0.08).normalize());
+        } else {
+            aimBone(thigh, shin, sitV[2].set(sh + lx * 0.12, 0.06, ch + lz * 0.12).normalize());
+            aimBone(shin, foot, sitV[2].set(sh * 0.12, -1, ch * 0.12).normalize());
+        }
     }
+}
+// REITEN: mit F neben dem Pferd aufsteigen; es folgt dann den Lauftasten (Shift = Galopp), mit F steigt man wieder ab
+const nearHorse = () => { const p = player?.model.position; return p && !player.boat && !player.sitting ? critters.find((c) => /horse/.test(c.def.file ?? '') && (c.x - p.x) ** 2 + (c.z - p.z) ** 2 < 2.6 ** 2) ?? null : null; };
+function rideHorse(c, dt) {
+    const pl = player, inp = pl.input ?? { fwd: 0, side: 0, run: 0 }, p = pl.model.position;
+    let speed = 0;
+    if (inp.fwd !== 0 || inp.side !== 0) {
+        const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
+        let dx = -sy * inp.fwd + cy * inp.side, dz = -cy * inp.fwd - sy * inp.side;
+        const len = Math.hypot(dx, dz); dx /= len; dz /= len;
+        let turn = Math.atan2(dx, dz) - c.heading;
+        turn = Math.atan2(Math.sin(turn), Math.cos(turn));
+        c.heading += turn * (1 - Math.exp(-dt * 3.5));
+        speed = (inp.run ? 6.5 : 1.7) * (Math.abs(turn) < 1.2 ? 1 : 0.35); // erst wenden, dann Tempo
+        const nx = c.x + Math.sin(c.heading) * speed * dt, nz = c.z + Math.cos(c.heading) * speed * dt, y = heightAt(c.x, c.z);
+        if (walkable(nx, nz, y)) { c.x = nx; c.z = nz; } else if (walkable(nx, c.z, y)) c.x = nx; else if (walkable(c.x, nz, y)) c.z = nz; else speed = 0;
+    }
+    c.state = speed > 3 ? 'flee' : speed > 0 ? 'walk' : 'idle';
+    c.timer = 3;
+    // die Figur sitzt auf dem Pferderücken
+    pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95;
+    pl.heading = c.heading;
+    p.set(c.x - Math.sin(c.heading) * 0.12, heightAt(c.x, c.z) + c.def.h * 0.72 - pl.hipH + Math.sin(c.stride * 4.5) * 0.02 * Math.min(1, speed), c.z - Math.cos(c.heading) * 0.12);
+    if (speed > 0 && sound && (c.clop = (c.clop ?? 0) - dt * (speed > 3 ? 5 : 2.2)) < 0) { c.clop = 1; soundBurst('bandpass', 620 + Math.random() * 200, 2.5, 0.07, 0.06); soundBurst('bandpass', 560 + Math.random() * 200, 2.5, 0.05, 0.06, 0.11); } // Hufschlag
+    c.stride += speed * dt;
 }
 const nearSeat = () => { const p = player?.model.position; return p && !player.boat ? seats.find((q) => (q.x - p.x) ** 2 + (q.z - p.z) ** 2 < 1.5 ** 2) ?? null : null; };
 function standUp() {
@@ -1689,6 +1720,11 @@ function interact() {
         return;
     }
     if (pl.sitting) return standUp();
+    if (pl.horse) { // absteigen, links neben das Pferd
+        const c = pl.horse; pl.horse = null; c.ridden = false; c.state = 'idle'; c.timer = 6;
+        for (const a of [Math.PI / 2, -Math.PI / 2, Math.PI, 0]) { const x = c.x + Math.sin(c.heading + a) * 1.3, z = c.z + Math.cos(c.heading + a) * 1.3; if (walkable(x, z, Infinity)) { pl.model.position.x = x; pl.model.position.z = z; break; } }
+        return;
+    }
     const dog = nearDog();
     if (dog) { // streicheln: der Hund setzt sich kurz und bellt freudig
         dog.state = 'idle'; dog.timer = 4;
@@ -1702,6 +1738,8 @@ function interact() {
     if (t) return carryTowel(t);
     const b = nearBoat();
     if (b && S.ice < 0.5) { pl.boat = b; b.userData.speed = 0; return; }
+    const horse = nearHorse();
+    if (horse) { pl.horse = horse; horse.ridden = true; return; }
     const seat = nearSeat();
     if (seat) { pl.sitting = seat; pl.heading = seat.face; }
 }
@@ -1711,10 +1749,12 @@ function updateHint() {
     let text = '';
     if (player?.boat) text = `${key}: Aussteigen (am Ufer)`;
     else if (player?.sitting) text = `${key}: Aufstehen`;
+    else if (player?.horse) text = `${key}: Absteigen`;
     else if (nearDog()) text = `${key}: Hund streicheln`;
     else if (player?.towel && nearLine()) text = `${key}: Handtuch aufhängen`;
     else if (!player?.towel && towelAt()) text = `${key}: Handtuch abnehmen`;
     else if (nearBoat()) text = S.ice < 0.5 ? `${key}: Ins Boot steigen` : 'Der Fluss ist zugefroren';
+    else if (nearHorse()) text = `${key}: Aufs Pferd steigen`;
     else if (nearSeat()) text = `${key}: Hinsetzen`;
     if (text !== el.textContent) { el.textContent = text; el.style.display = text ? 'block' : 'none'; }
 }
@@ -1725,14 +1765,16 @@ function updatePlayer(dt) {
     const side = k('KeyD', 'ArrowRight') - k('KeyA', 'ArrowLeft') + touch.side;
     const wantsMove = fwd !== 0 || side !== 0;
     const wantsRun = wantsMove && (k('ShiftLeft', 'ShiftRight') || touch.run);
+    if (player) player.input = { fwd, side, run: wantsRun };
 
     if (player) {
         const pl = player, p = pl.model.position;
-        pl.moving += ((wantsMove && !pl.boat && !pl.sitting ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
+        pl.moving += ((wantsMove && !pl.boat && !pl.sitting && !pl.horse ? 1 : 0) - pl.moving) * (1 - Math.exp(-dt * 8));
         pl.running += ((wantsRun ? 1 : 0) - pl.running) * (1 - Math.exp(-dt * 6));
         if (pl.sitting && wantsMove) standUp(); // loslaufen heißt aufstehen
         if (pl.boat) rowBoat(pl, fwd, side, dt);
         else if (pl.sitting) { p.x = pl.sitting.x; p.z = pl.sitting.z; }
+        else if (pl.horse) { /* Ort und Richtung setzt rideHorse */ }
         else if (wantsMove) {
             // Blickrichtung der Kamera auf dem Boden: vorwärts (-sin, -cos), rechts (cos, -sin)
             const sy = Math.sin(cam.yaw), cy = Math.cos(cam.yaw);
@@ -1747,9 +1789,9 @@ function updatePlayer(dt) {
             else if (walkable(nx, p.z, p.y)) p.x = nx;      // an Hindernissen entlanggleiten
             else if (walkable(p.x, nz, p.y)) p.z = nz;
         }
-        if (!pl.boat) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
+        if (!pl.boat && !pl.horse) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
         pl.wake = (pl.wake ?? 0) - dt * (0.4 + pl.moving * (1 + pl.running));
-        if (!pl.boat && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
+        if (!pl.boat && !pl.horse && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
         pl.model.rotation.y = pl.heading;
         pl.idle.setEffectiveWeight(1 - pl.moving);
         pl.walk.setEffectiveWeight(pl.moving * (1 - pl.running));
@@ -1757,6 +1799,7 @@ function updatePlayer(dt) {
         pl.mixer.update(dt);
         // sitzend rutscht die Hüfte auf Sitzhöhe, die Beine werden angewinkelt
         pl.sit = (pl.sit ?? 0) + ((pl.sitting ? 1 : 0) - (pl.sit ?? 0)) * (1 - Math.exp(-dt * 7));
+        if (pl.horse) applySit(pl, true);
         if (pl.sitting) { pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95; p.y += (pl.sitting.h + 0.1 - pl.hipH) * pl.sit; applySit(pl); }
 
         pl.blink -= dt;
@@ -3354,6 +3397,8 @@ function updateCritters(dt, time) {
     for (const c of critters) {
         const d = c.def, h = c.herd;
         const dxp = c.x - pp.x, dzp = c.z - pp.z;
+        ai: {
+        if (c.ridden) { rideHorse(c, dt); break ai; } // geritten: die Figur lenkt
         if (c.state !== 'flee' && Math.hypot(dxp, dzp) < d.flee) { // Mensch zu nah: weg hier
             const base = Math.atan2(dxp, dzp);
             for (const k of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9]) {
@@ -3404,6 +3449,7 @@ function updateCritters(dt, time) {
                 if (critterOk(nx, nz, h.side) || !critterOk(c.x, c.z, h.side)) { c.x = nx; c.z = nz; c.stride += v * dt; }
                 else { c.state = 'idle'; c.timer = 1; }
             }
+        }
         }
         const k = 1 - Math.exp(-dt * 5);
         c.w[1] += ((c.state === 'walk' ? 1 : 0) - c.w[1]) * k;
