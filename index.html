@@ -1740,9 +1740,10 @@ function applySit(pl, astride = false) { // astride: im Sattel, die Beine hänge
             aimBone(thigh, shin, sitV[2].set(sh * 0.45 + lx * 0.6, -0.62, ch * 0.45 + lz * 0.6).normalize());
             aimBone(shin, foot, sitV[2].set(-sh * 0.22 + lx * 0.08, -1, -ch * 0.22 + lz * 0.08).normalize());
         } else {
-            aimBone(thigh, shin, sitV[2].set(sh + lx * 0.12, 0.06, ch + lz * 0.12).normalize());
             const reach = pl.jeep ? 0.75 : 0.12; // im Jeep sind die Beine zu den Pedalen gestreckt
-            aimBone(shin, foot, sitV[2].set(sh * reach, -1, ch * reach).normalize());
+            const lean = (v) => pl.jeep && pl.tilt ? v.applyQuaternion(pl.tilt) : v; // Beine folgen der Neigung des Wagens
+            aimBone(thigh, shin, lean(sitV[2].set(sh + lx * 0.12, 0.06, ch + lz * 0.12).normalize()));
+            aimBone(shin, foot, lean(sitV[2].set(sh * reach, -1, ch * reach).normalize()));
         }
     }
 }
@@ -1775,8 +1776,11 @@ function driveJeep(pl, fwd, side, run, dt) {
     // die Figur sitzt am Steuer
     pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95;
     pl.heading = j.heading;
+    // Sitzplatz im Wagen (nicht in der Welt), damit die Figur am Hang nicht aus dem Sitz rutscht
     const [sl, su, sf] = JEEP.seat;
-    p.set(j.x + ch * sl + sh * sf, j.y + su + 0.1 - pl.hipH, j.z - sh * sl + ch * sf);
+    j.g.updateMatrixWorld();
+    p.set(sl, su + 0.1 - pl.hipH, sf).applyMatrix4(j.g.matrixWorld);
+    pl.tilt = (pl.tilt ?? new THREE.Quaternion()).copy(j.g.quaternion).multiply(sitQ[0].setFromAxisAngle(sitV[0].set(0, 1, 0), j.heading).invert()); // Neigung des Wagens ohne seine Fahrtrichtung
     if (sound) { // Motor: tiefes Brummen, das mit dem Tempo höher wird
         if (!sound.engine) {
             const { ctx } = sound, o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
@@ -1816,7 +1820,11 @@ const gripV = new THREE.Vector3();
 function holdWheel(pl) {
     const p = pl.model.position, sh = Math.sin(pl.heading), ch = Math.cos(pl.heading), [gw, gu, gf] = JEEP.grip, hipY = p.y + (pl.hipH ?? 0.95);
     const steer = (pl.input?.side ?? 0) * 0.06; // beim Lenken wandern die Hände etwas mit
-    for (const [side, sg] of [['Left', 1], ['Right', -1]]) reachHand(pl, side, gripV.set(p.x + ch * sg * gw + sh * gf, hipY + gu + sg * steer, p.z - sh * sg * gw + ch * gf));
+    for (const [side, sg] of [['Left', 1], ['Right', -1]]) { // Griffpunkte liegen im Wagen und kippen mit ihm
+        gripV.set(ch * sg * gw + sh * gf, hipY - p.y + gu + sg * steer, -sh * sg * gw + ch * gf);
+        if (pl.tilt) gripV.applyQuaternion(pl.tilt);
+        reachHand(pl, side, gripV.add(p));
+    }
 }
 // REITEN: mit F neben dem Pferd aufsteigen; es folgt dann den Lauftasten (Shift = Galopp), mit F steigt man wieder ab
 const nearHorse = () => { const p = player?.model.position; return p && !player.boat && !player.sitting ? critters.find((c) => /horse/.test(c.def.file ?? '') && (c.x - p.x) ** 2 + (c.z - p.z) ** 2 < 2.6 ** 2) ?? null : null; };
@@ -1953,7 +1961,8 @@ function updatePlayer(dt) {
         if (!pl.boat && !pl.horse && !pl.jeep) { const g = heightAt(p.x, p.z), dk = deckY(p.x, p.z); p.y = dk > g && p.y > dk - 0.6 ? dk : g; } // unter der Brücke bleibt man am Boden
         pl.wake = (pl.wake ?? 0) - dt * (0.4 + pl.moving * (1 + pl.running));
         if (!pl.boat && !pl.horse && !pl.jeep && p.y < WATER_LEVEL - 0.03 && pl.wake < 0) { pl.wake = 0.3; addRipple(p.x, p.z, 0.5 + pl.moving * 0.5); }
-        pl.model.rotation.y = pl.heading;
+        // im Jeep sitzt die Figur fest im Wagen und neigt sich mit ihm
+        if (pl.jeep) pl.model.quaternion.copy(jeep.g.quaternion); else pl.model.rotation.set(0, pl.heading, 0);
         pl.idle.setEffectiveWeight(1 - pl.moving);
         pl.walk.setEffectiveWeight(pl.moving * (1 - pl.running));
         pl.run.setEffectiveWeight(pl.moving * pl.running);
