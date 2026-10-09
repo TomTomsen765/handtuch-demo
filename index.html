@@ -75,6 +75,7 @@
         „Low Poly Church“ von Yanez-Designs · „Windmill Stylized“ von a_l_e_x_a_n_d_e_r ·
         „Chicken – rigged“ von Maf'j Alvarez · „Lupe Goat“ von jackiebatteau · „Artia, the Walking Peasant“ von paolo.russo ·
         „Wooden Boat“ von o0ozexo0o · „Boat“ von bumstrum · „Malpas Wooden Boat Wreck“ von artfletch.
+        Aufnahmen von Wikimedia Commons: Hundegebell von Amada44 (<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noopener">CC BY-SA 3.0</a>), Glocke des Schlosses Winsen von Andree Werder (<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>), jeweils zugeschnitten.
         Außerdem: „Cat“ von J-Toastie (CC BY 3.0, Poly Pizza), Dorf- und Tiermodelle von Quaternius (CC0), Texturen von Poly Haven (CC0), Bäume mit ez-tree.
     </p>
 </details>
@@ -2938,6 +2939,9 @@ function startSound() {
     };
     sound = { ctx, master, buf, muted: false, river: bed('bandpass', 900, 0.5), wind: bed('lowpass', 400, 0.7), rain: bed('highpass', 2600, 0.5),
         bird: 1, crickets: [], step: 0 };
+    // Aufnahmen für Laute, die sich schlecht erzeugen lassen (Hund, Glocke); fehlen sie, bleibt es beim erzeugten Klang
+    sound.samples = {};
+    for (const name of ['bark1', 'bark2', 'bell1']) fetch(`sounds/${name}.ogg`).then((r) => r.arrayBuffer()).then((b) => ctx.decodeAudioData(b)).then((b) => { sound.samples[name] = b; }).catch(() => {});
     // Grillen: mehrere Tiere, jedes mit eigener Tonhöhe und eigenem Platz; gezirpt wird in updateSound in kurzen Dreierstößen
     sound.crickets = Array.from({ length: 5 }, () => {
         const osc = ctx.createOscillator(), g = ctx.createGain(), pan = ctx.createStereoPanner?.() ?? ctx.createGain();
@@ -2956,6 +2960,7 @@ function soundBurst(type, freq, q, gain, dur, delay = 0, sweepTo = null) { // ku
     src.connect(f).connect(g).connect(sound.master); src.start(t, Math.random() * 2); src.stop(t + dur + 0.05);
 }
 function bell(delay, gain) { // Glockenschlag: unharmonische Teiltöne, die unterschiedlich schnell verklingen
+    if (playSample('bell1', gain * 2.8, 1.86, 4.4, 0.8, delay)) return;
     const { ctx } = sound, t = ctx.currentTime + delay;
     for (const [mul, amp, dur] of [[0.5, 0.5, 3.6], [1, 1, 2.8], [1.19, 0.6, 2.2], [1.5, 0.45, 1.8], [2, 0.35, 1.4], [2.51, 0.22, 1.0], [3.01, 0.12, 0.7]]) {
         const o = ctx.createOscillator(), g = ctx.createGain();
@@ -2977,7 +2982,20 @@ function voiced(shape, f0, f1, dur, gain, delay, bandHz, q, pan = 0, rasp = 0) {
     }
     o.connect(f).connect(g).connect(p).connect(sound.master); o.start(t); o.stop(t + dur + 0.05);
 }
+function playSample(name, gain, offset, dur, rate = 1, delay = 0) { // Ausschnitt einer Aufnahme; false, wenn sie (noch) nicht geladen ist
+    const buf = sound.samples?.[name];
+    if (!buf) return false;
+    const { ctx } = sound, t = ctx.currentTime + delay, src = ctx.createBufferSource(), g = ctx.createGain(), len = dur / rate;
+    src.buffer = buf; src.playbackRate.value = rate;
+    g.gain.setValueAtTime(gain, t); g.gain.setValueAtTime(gain, t + len - 0.06); g.gain.linearRampToValueAtTime(0, t + len);
+    src.connect(g).connect(sound.master); src.start(t, offset, dur);
+    return true;
+}
+// Stellen der einzelnen Beller in den Aufnahmen (Sekunden)
+const BARKS = { bark1: [0.1, 1.05, 1.8], bark2: [0, 0.55, 1.35, 2.35, 3.25] };
 function bark(gain, pitch) { // zwei, drei kurze Beller
+    const name = Math.random() < 0.5 ? 'bark1' : 'bark2', at = BARKS[name], i = Math.floor(Math.random() * at.length), n = Math.min(at.length - i, 1 + Math.floor(Math.random() * 3));
+    if (playSample(name, gain * 0.24, at[i], at[i + n - 1] + 0.42 - at[i], pitch < 350 ? 0.86 : 1.12)) return;
     for (let k = 0, n = 1 + Math.floor(Math.random() * 3), t = 0; k < n; k++, t += 0.24 + Math.random() * 0.12) {
         voiced('sawtooth', pitch * 1.25, pitch * 0.6, 0.17, gain, t, pitch * 1.8, 0.8);
         soundBurst('bandpass', pitch * 3, 0.8, gain * 0.35, 0.11, t);
@@ -3006,7 +3024,7 @@ function updateSound(dt, day, rainAmt) {
     const set = (param, v) => param.setTargetAtTime(v, now, 0.25);
     const dRiver = Math.abs(pp.x - riverX(pp.z)) / riverW(pp.z);
     set(sound.river.g.gain, 0.085 * smooth(38, 3, dRiver) * (1 - S.ice * 0.75));
-    set(sound.wind.g.gain, 0.05 + state.wind * 0.11);
+    set(sound.wind.g.gain, 0.015 + state.wind * 0.045);
     set(sound.wind.f.frequency, 260 + state.wind * 520);
     set(sound.rain.g.gain, rainAmt * 0.22);
     const mild = clamp01(1 - S.frost * 1.4) * (1 - state.weather);
@@ -3026,9 +3044,9 @@ function updateSound(dt, day, rainAmt) {
     if (hour !== sound.hour) {
         const first = sound.hour === undefined;
         sound.hour = hour;
-        if (!first && params.todJump <= 0 && (hour === 6 || hour === 12 || hour === 18)) {
+        if (!first && hour >= 6 && hour <= 18 && hour % 3 === 0 && now > (sound.rang ?? -99) + 9) { sound.rang = now; // alle drei Stunden, also etwa alle anderthalb Minuten
             const ch = BUILDINGS.find((b) => b.file === 'church'), vol = 0.16 * smooth(170, 12, Math.hypot(pp.x - ch.x, pp.z - ch.z));
-            for (let k = 0; k < 5 && vol > 0.004; k++) bell(k * 1.5, vol);
+            for (let k = 0; k < 4 && vol > 0.004; k++) bell(k * 1.7, vol);
         }
     }
     // ab und zu bellt ein Dorfhund, ab und zu krächzen Krähen
