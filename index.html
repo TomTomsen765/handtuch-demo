@@ -45,9 +45,11 @@
         #stick i { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(255,255,255,0.7); }
         @media (max-width: 760px) {
             #ui { top: 10px; right: 10px; gap: 6px; }
-            .btn { padding: 9px 12px; min-width: 150px; font-size: 9px; letter-spacing: 1px; }
-            #info { left: 10px; right: 10px; bottom: 8px; font-size: 9px; }
-            #credits { left: 10px; bottom: 26px; }
+            .btn { padding: 7px 10px; min-width: 132px; font-size: 9px; letter-spacing: 0.8px; border-radius: 9px; }
+            #info { left: 10px; right: 124px; bottom: 8px; font-size: 9px; } /* rechts bleibt Platz für die Karte */
+            #credits { left: 10px; bottom: 46px; max-width: calc(100vw - 20px); }
+            .fly { right: 14px; }
+            #flyUp { bottom: 236px !important; } #flyDown { bottom: 166px !important; }
         }
         #intro {
             position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px;
@@ -76,11 +78,15 @@
         #goals div::before { content: '○'; position: absolute; left: 2px; }
         #goals div.done { color: #fff; }
         #goals div.done::before { content: '✓'; color: #9be28a; }
-        @media (max-width: 760px) { #goals { right: 10px; top: 190px; width: 240px; } }
+        @media (max-width: 760px) { #goals { right: 10px; top: 178px; width: 240px; max-height: calc(100% - 240px); } }
         #hint {
             position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 10; display: none; cursor: pointer;
             padding: 9px 18px; border-radius: 12px; background: rgba(20, 28, 36, 0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255,255,255,0.3); color: #fff; font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+        }
+        @media (max-width: 760px) { /* steht hinter den Grundregeln, sonst gewinnen die */
+            #hint { left: 10px; right: 92px; transform: none; margin: 0 auto; width: fit-content; white-space: normal; text-align: center; bottom: 162px; font-size: 11px; padding: 8px 12px; } /* rechts bleiben die Flugknöpfe frei */
+            #toast { width: max-content; max-width: 88vw; white-space: normal; text-align: center; top: 180px; }
         }
         #hello {
             position: absolute; left: 0; top: 0; z-index: 9; pointer-events: none; opacity: 0; transition: opacity 0.3s;
@@ -129,8 +135,8 @@
 <div id="toast"></div>
 <div id="goals"></div>
 <canvas id="map" width="300" height="300"></canvas>
-<button class="fly" id="flyUp" style="bottom: 190px">▲</button>
-<button class="fly" id="flyDown" style="bottom: 116px">▼</button>
+<button class="fly" id="flyUp" style="bottom: 290px">▲</button>
+<button class="fly" id="flyDown" style="bottom: 216px">▼</button>
 <div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Pferd, Jeep, Hubschrauber, Angeln, Hund, Hinsetzen | P: Foto | I: Bildrate | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
@@ -583,7 +589,13 @@ const deckY = (x, z) => { const d = onDeck(x, z); return d ? (d.yAt ? d.yAt(x) :
 
 const obstacles = []; // { x, z, r } – Pfosten der Wäscheleine
 const keys = new Set();
-const touch = { fwd: 0, side: 0, run: false, stick: null, used: false, up: 0 }; // Steuerknüppel auf Touch-Geräten
+const touch = { fwd: 0, side: 0, run: false, stick: null, used: false, up: 0 };
+// Touch-Geräte bekommen von Anfang an die Fingerbedienung erklärt, nicht erst nach der ersten Berührung
+function useTouch() {
+    if (touch.used) return;
+    touch.used = true;
+    document.getElementById('info').textContent = 'Links: Laufen (weit ziehen = Rennen) | Rechts wischen: Umsehen | Zwei Finger: Zoom | Hinweise antippen';
+} // Steuerknüppel auf Touch-Geräten
 const START = new THREE.Vector3(5, 0, 6);
 // Verfolgerkamera: Maus dreht um die Figur, WASD läuft relativ zur Blickrichtung
 const cam = { yaw: Math.atan2(START.x, START.z), pitch: 0.16, dist: 4.5, target: new THREE.Vector3() };
@@ -720,7 +732,7 @@ async function init() {
     const find = (list, id) => [...list].find((t) => t.identifier === id);
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        if (!touch.used) { touch.used = true; document.getElementById('info').textContent = 'Links: Laufen (weit ziehen = Rennen) | Rechts wischen: Umsehen | Zwei Finger: Zoom'; }
+        useTouch();
         for (const t of e.changedTouches) {
             if (t.clientX < window.innerWidth * 0.45 && !touch.stick) {
                 touch.stick = { id: t.identifier, x: t.clientX, y: t.clientY };
@@ -788,6 +800,7 @@ async function init() {
     window.addEventListener('keyup', (e) => keys.delete(e.code));
     window.addEventListener('blur', () => keys.clear());
 
+    if (window.matchMedia?.('(pointer: coarse)').matches) useTouch();
     renderer.setAnimationLoop(animate);
 
     await Promise.all([createTrees(), createPlayer(), createCritters(), createVillage()]);
@@ -2281,14 +2294,17 @@ window.closeIntro = () => { document.getElementById('intro').classList.add('gone
 function updateHint() {
     const el = document.getElementById('hint'), key = touch.used ? 'Tippen' : 'F';
     let text = '';
-    if (player?.chute) text = 'Lauftasten lenken den Fallschirm';
+    if (player?.chute) text = touch.used ? 'Der Steuerknüppel lenkt den Fallschirm' : 'Lauftasten lenken den Fallschirm';
     else if (player?.fishing) text = player.fishing.biting ? `${key}: Es beißt! Einholen` : `${key}: Angel einpacken`;
     else if (player?.boat) text = `${key}: Aussteigen (am Ufer)`;
     else if (player?.sitting) text = `${key}: Aufstehen`;
     else if (player?.horse) text = `${key}: Absteigen`;
     else if (player?.jeep) text = `${key}: Aussteigen`;
-    else if (player?.heli) text = heli.landed ? (heli.spin > 0.75 ? `Leertaste: Abheben | ${key}: Aussteigen` : 'Rotoren laufen an …')
-        : heli.y > Math.max(heliGround(heli.x, heli.z), obstacleTop(heli.x, heli.z)) + 14 ? `Leertaste steigt, Shift sinkt | ${key}: Mit dem Fallschirm abspringen` : 'Leertaste steigt, Shift sinkt – zum Aussteigen landen';
+    else if (player?.heli) { // am Handy heißen die Tasten ▲ und ▼
+        const up = touch.used ? '▲' : 'Leertaste', updown = touch.used ? '▲ steigt, ▼ sinkt' : 'Leertaste steigt, Shift sinkt';
+        text = heli.landed ? (heli.spin > 0.75 ? `${up}: Abheben | ${key}: Aussteigen` : 'Rotoren laufen an …')
+            : heli.y > Math.max(heliGround(heli.x, heli.z), obstacleTop(heli.x, heli.z)) + 14 ? `${updown} | ${key}: Mit dem Fallschirm abspringen` : `${updown} – zum Aussteigen landen`;
+    }
     else if (player?.towel && nearLine()) text = `${key}: Handtuch aufhängen`;
     else if (nearLost()) text = `${key}: Handtuch aufheben`;
     else if (!player?.towel && towelAt()) text = `${key}: Handtuch abnehmen`;
