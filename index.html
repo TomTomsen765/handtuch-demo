@@ -65,6 +65,8 @@
         #intro button:disabled { background: rgba(255,255,255,0.35); cursor: default; }
         #fps { position: absolute; right: 20px; bottom: 20px; z-index: 10; display: none; color: #fff; font: 12px ui-monospace, monospace; padding: 5px 9px; border-radius: 8px; background: rgba(20,28,36,0.6); }
         .fly { position: absolute; right: 22px; z-index: 10; display: none; width: 62px; height: 62px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.45); background: rgba(20,28,36,0.35); color: #fff; font-size: 24px; touch-action: none; }
+        #map { position: absolute; right: 20px; bottom: 52px; z-index: 9; width: 150px; height: 150px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); box-shadow: 0 6px 20px rgba(0,0,0,0.4); pointer-events: none; }
+        @media (max-width: 760px) { #map { width: 104px; height: 104px; right: 10px; bottom: 44px; } }
         #hint {
             position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); z-index: 10; display: none; cursor: pointer;
             padding: 9px 18px; border-radius: 12px; background: rgba(20, 28, 36, 0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -113,6 +115,7 @@
 <div id="stick"><i></i></div>
 <div id="hint" onclick="window.interact()"></div>
 <div id="fps"></div>
+<canvas id="map" width="300" height="300"></canvas>
 <button class="fly" id="flyUp" style="bottom: 190px">▲</button>
 <button class="fly" id="flyDown" style="bottom: 116px">▼</button>
 <div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | F: Handtuch, Boot, Pferd, Jeep, Hubschrauber, Angeln, Hund, Hinsetzen | P: Foto | I: Bildrate | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
@@ -428,9 +431,13 @@ const BUILDINGS = [
     { file: 'smallbarn', t: 0.78, off: 11, h: 5, r: 3.8 },
     { file: 'barn', t: 0.83, off: -12, h: 6.4, r: 4.6 },
     { file: 'silo', t: 0.9, off: -18.5, h: 9, r: 2.2 },
-    { file: 'openbarn', t: 0.97, off: -10, h: 4.6, r: 3.4 }
+    { file: 'openbarn', t: 0.97, off: -10, h: 4.6, r: 3.4 },
+    // Berghütte auf der Alm (dasselbe Blockhaus wie im Dorf), nur mit dem Hubschrauber zu erreichen; at: feste Stelle statt am Weg
+    { file: 'woodhouse', at: [279, 30], face: -0.9, h: 5.5, r: 3.6, own: true, smoke: true, clear: 8, alp: true }
 ];
-for (const b of BUILDINGS) Object.assign(b, roadPoint(b.t, b.off));
+for (const b of BUILDINGS) Object.assign(b, b.at ? { x: b.at[0], z: b.at[1] } : roadPoint(b.t, b.off));
+// Alm mit zweitem Landeplatz und der Gipfel mit dem Kreuz darüber
+const ALP = { x: 288, z: 24 }, PEAK = { x: 348, z: -16 };
 const WELL = roadPoint(0.45, 5.5), PEN = Object.assign(roadPoint(0.97, 14), { r: 8.5 });
 // Grundstücke: jedes Wohnhaus bekommt ein umzäuntes Rechteck – W halbe Breite, F Tiefe bis zum Zaun am Weg, B Tiefe des Gartens dahinter
 const LOTS = BUILDINGS.filter((b) => b.file.startsWith('house')).map((b, i) => ({ b, i, W: 5.75, F: Math.abs(b.off) - 3.4, B: 11, sin: Math.sin(b.face), cos: Math.cos(b.face) }));
@@ -480,6 +487,7 @@ const inField = (x, z, pad = 0) => {
 const BRIDGE = { z: -13, x0: -22, x1: -8, half: 0.8, rise: 1.5 };
 // Landeplatz des Hubschraubers auf der Wiese zwischen Wäscheleine und Dorf
 const HELI = { x: 21, z: 1, pad: 4.4, flip: 0 };
+const PADS = [{ x: HELI.x, z: HELI.z, y: 0 }, { x: ALP.x, z: ALP.z, y: 0 }]; // Landeplätze im Tal und auf der Alm; die Höhe der Platte wird beim Bauen eingetragen
 // Lagerplatz am anderen Ufer; ein Pfad führt von der Wäscheleine über die Brücke dorthin
 const CAMP = { x: -27, z: -18 };
 PATHS.push({ ax: 1.5, az: -3, bx: BRIDGE.x1 + 0.3, bz: BRIDGE.z }, { ax: BRIDGE.x0 - 0.3, az: BRIDGE.z, bx: CAMP.x + 2.2, bz: CAMP.z + 1.2 });
@@ -503,7 +511,7 @@ const pathDist = (x, z) => {
 const HEDGE = { h: 1.7, foot: 0.26, half: 0.36 }; // Höhe, Beginn des Laubs über dem Boden, halbe Dicke
 const hedgeUniforms = { uTime: { value: 0 }, uTurn: { value: 0 }, uWinter: { value: 0 } };
 // Häuser der zweiten Reihe bekommen einen runden Garten mit Zaun (yard: Radius)
-const YARDS = BUILDINGS.filter((b) => b.clear && b.file !== 'windmill');
+const YARDS = BUILDINGS.filter((b) => b.clear && b.file !== 'windmill' && !b.alp);
 for (const b of YARDS) b.yard = b.r + 2.8;
 const builtUp = (x, z) => inLot(x, z) || inField(x, z, 1) || (x - HELI.x) ** 2 + (z - HELI.z) ** 2 < (HELI.pad + 1) ** 2 || (x - CAMP.x) ** 2 + (z - CAMP.z) ** 2 < 16 || BUILDINGS.some((b) => (b.x - x) ** 2 + (b.z - z) ** 2 < (b.r + 1) ** 2);
 
@@ -758,6 +766,7 @@ async function init() {
     createWheat();
     createDust();
     createGear();
+    createMap();
     document.querySelector('#bar i').style.width = '100%';
     document.getElementById('loader').classList.add('done');
     // beide Beleuchtungen (Tag ohne, Nacht mit Punktlichtern) vorab übersetzen, damit es in der Dämmerung nicht ruckt
@@ -991,6 +1000,7 @@ function createTerrain() {
         );
     };
     const terrain = new THREE.Mesh(geo, mat);
+    terrainMesh = terrain;
     terrain.receiveShadow = true;
     scene.add(terrain);
 }
@@ -1847,7 +1857,7 @@ function applySit(pl, astride = false) { // astride: im Sattel, die Beine hänge
 }
 // HUBSCHRAUBER: mit F einsteigen. Leertaste steigt, Shift sinkt, W/S fliegt vor und zurück, A/D dreht. Aussteigen nur nach der Landung.
 let heli = null;
-const heliGround = (x, z) => { const g = heightAt(x, z); return (x - HELI.x) ** 2 + (z - HELI.z) ** 2 < HELI.pad ** 2 ? Math.max(g, heli?.padY ?? g) : Math.max(g, WATER_LEVEL); };
+const heliGround = (x, z) => { const g = heightAt(x, z), pad = PADS.find((q) => (x - q.x) ** 2 + (z - q.z) ** 2 < HELI.pad ** 2); return pad ? Math.max(g, pad.y) : Math.max(g, WATER_LEVEL); };
 function placeHeli() {
     const h = heli;
     h.g.position.set(h.x, h.y, h.z);
@@ -2055,7 +2065,7 @@ function createGear() {
     gear.bob = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), new THREE.MeshStandardMaterial({ color: 0xd8301c, roughness: 0.5 }));
     for (const o of [gear.rod, gear.line, gear.bob]) { o.visible = false; o.frustumCulled = false; scene.add(o); }
 }
-const canFish = () => { const p = player?.model.position; return p && !player.boat && !player.horse && !player.jeep && !player.sitting && !!onDeck(p.x, p.z); };
+const canFish = () => { const p = player?.model.position; return p && !player.boat && !player.horse && !player.jeep && !player.sitting && !player.heli && !!onDeck(p.x, p.z)?.fish; }; // nur Steg und Brücke, nicht die Landeplätze
 function startFishing() {
     const pl = player, p = pl.model.position;
     let best = null; // tiefste Stelle im Umkreis: dorthin fliegt der Schwimmer
@@ -3255,9 +3265,10 @@ async function createVillage() {
             m.add(car);
         }
         // am Hang richtet sich das Haus nach der tiefsten Stelle unter seinem Grundriss, sonst hängen Treppen und Pfosten in der Luft
-        let ground = heightAt(b.x, b.z);
-        for (let k = 0; k < 8; k++) ground = Math.min(ground, heightAt(b.x + Math.cos(k * 0.785) * b.r * 0.8, b.z + Math.sin(k * 0.785) * b.r * 0.8));
-        ground = Math.max(ground, heightAt(b.x, b.z) - 0.9, WATER_LEVEL - 0.3);
+        const gAt = b.alp ? surfaceAt : heightAt;
+        let ground = gAt(b.x, b.z);
+        for (let k = 0; k < 8; k++) ground = Math.min(ground, gAt(b.x + Math.cos(k * 0.785) * b.r * 0.8, b.z + Math.sin(k * 0.785) * b.r * 0.8));
+        ground = Math.max(ground, gAt(b.x, b.z) - (b.alp ? 2.5 : 0.9), WATER_LEVEL - 0.3);
         holder.position.set(b.x, ground - 0.05, b.z);
         holder.rotation.y = b.face + (b.rot ?? 0);
         holder.updateMatrixWorld(true);
@@ -3473,22 +3484,29 @@ async function createVillage() {
         for (let i = 0; i < n; i++) for (const sd of [-1, 1]) posts.setMatrixAt(i * 2 + (sd > 0 ? 1 : 0), new THREE.Matrix4().makeTranslation(x0 + 0.15 + (x1 - x0 - 0.9) * i / (n - 1), y - 0.6, z + sd * 0.58));
         posts.castShadow = true;
         scene.add(deck, posts);
-        decks.push({ x0, x1, z0: z - 0.65, z1: z + 0.65, y: y + 0.035, low: true });
+        decks.push({ x0, x1, z0: z - 0.65, z1: z + 0.65, y: y + 0.035, low: true, fish: true });
     }
     // Hubschrauber auf seinem Landeplatz ("Low Poly Helicopter" von antonmoek, sketchfab.com, CC-BY 4.0)
     try {
         const { x, z, pad } = HELI;
-        let padY = heightAt(x, z);
-        for (let k = 0; k < 8; k++) padY = Math.max(padY, heightAt(x + Math.cos(k * 0.785) * pad, z + Math.sin(k * 0.785) * pad));
-        padY += 0.06;
         const cv = document.createElement('canvas'); cv.width = cv.height = 256;
         const g2 = cv.getContext('2d'); g2.fillStyle = '#8b8d8c'; g2.fillRect(0, 0, 256, 256);
         g2.strokeStyle = '#f2efe6'; g2.lineWidth = 9; g2.beginPath(); g2.arc(128, 128, 104, 0, 6.3); g2.stroke();
         g2.fillStyle = '#f2efe6'; g2.font = '700 150px system-ui, sans-serif'; g2.textAlign = 'center'; g2.textBaseline = 'middle'; g2.fillText('H', 128, 138);
         const padTex = new THREE.CanvasTexture(cv); padTex.colorSpace = THREE.SRGBColorSpace; padTex.anisotropy = 8;
-        const slab = new THREE.Mesh(new THREE.CylinderGeometry(pad, pad + 0.3, 1.2, 40), [new THREE.MeshStandardMaterial({ color: 0x7c7e7d, roughness: 1 }), new THREE.MeshStandardMaterial({ map: padTex, roughness: 0.95 }), new THREE.MeshStandardMaterial({ color: 0x7c7e7d })]);
-        slab.position.set(x, padY - 0.6, z); slab.receiveShadow = true; scene.add(slab);
-        decks.push({ x0: x - pad * 0.72, x1: x + pad * 0.72, z0: z - pad * 0.72, z1: z + pad * 0.72, y: padY }); // man kann auf die Platte treten
+        const padMats = [new THREE.MeshStandardMaterial({ color: 0x7c7e7d, roughness: 1 }), new THREE.MeshStandardMaterial({ map: padTex, roughness: 0.95 }), new THREE.MeshStandardMaterial({ color: 0x7c7e7d })];
+        for (const q of PADS) { // Platte auf Höhe der höchsten Stelle darunter; am Hang reicht ihr Sockel bis zum Boden hinab
+            const hAt = q === PADS[0] ? heightAt : surfaceAt; // im Tal stimmt die Formel, auf der Alm zählt die gezeichnete Fläche
+            let lo = Infinity;
+            q.y = hAt(q.x, q.z);
+            for (let k = 0; k < 8; k++) { const hh = hAt(q.x + Math.cos(k * 0.785) * pad, q.z + Math.sin(k * 0.785) * pad); q.y = Math.max(q.y, hh); lo = Math.min(lo, hh); }
+            q.y = Math.max(q.y, heightAt(q.x, q.z)); // nie unter der Höhe, auf der die Figur läuft
+            q.y += 0.06;
+            const deep = q.y - lo + 0.8, slab = new THREE.Mesh(new THREE.CylinderGeometry(pad, pad + 0.3, deep, 40), padMats);
+            slab.position.set(q.x, q.y - deep / 2, q.z); slab.receiveShadow = slab.castShadow = true; scene.add(slab);
+            decks.push({ x0: q.x - pad * 0.72, x1: q.x + pad * 0.72, z0: q.z - pad * 0.72, z1: q.z + pad * 0.72, y: q.y }); // man kann auf die Platte treten
+        }
+        const padY = PADS[0].y;
         const m = (await loader.loadAsync('village/heli.glb')).scene, box = new THREE.Box3();
         m.updateMatrixWorld(true);
         let main = null, tail = null;
@@ -3600,6 +3618,20 @@ async function createVillage() {
         scene.add(stall);
         for (const k of [-0.9, 0, 0.9]) { const q = stall.localToWorld(new THREE.Vector3(k, 0, 0.05)); obstacles.push({ x: q.x, z: q.z, r: 0.75 }); }
     }
+    // Gipfelkreuz auf dem Berg über der Alm, mit einem Steinmann am Fuß
+    {
+        let px = PEAK.x, pz = PEAK.z; // die höchste Stelle im Umkreis suchen
+        for (let x = PEAK.x - 14; x <= PEAK.x + 14; x += 2) for (let z = PEAK.z - 14; z <= PEAK.z + 14; z += 2) if (heightAt(x, z) > heightAt(px, pz)) { px = x; pz = z; }
+        PEAK.x = px; PEAK.z = pz;
+        const y = surfaceAt(px, pz), cross = new THREE.Group();
+        cross.position.set(px, y - 0.4, pz);
+        const beam = (w, h2, d2, yy) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h2, d2), wood); m.position.y = yy; m.castShadow = true; cross.add(m); };
+        beam(0.28, 6.4, 0.28, 3.2); beam(2.6, 0.26, 0.26, 4.9);
+        const stoneMat = new THREE.MeshStandardMaterial({ color: 0x8f8b82, roughness: 1, flatShading: true });
+        for (let k = 0; k < 9; k++) { const st = new THREE.Mesh(new THREE.IcosahedronGeometry(0.3 - k * 0.02, 0), stoneMat); st.position.set(0.55 + (rnd() - 0.5) * 0.2 * (1 - k / 9), 0.42 + k * 0.19, 0.25 + (rnd() - 0.5) * 0.2 * (1 - k / 9)); st.scale.y = 0.6; st.rotation.y = rnd() * 3; st.castShadow = true; cross.add(st); }
+        scene.add(cross);
+        obstacles.push({ x: px, z: pz, r: 0.5 });
+    }
     // Jahreszeiten im Dorf: Schneemann im Winter, Kürbisse im Herbst, Maibaum im Frühling
     const seasonal = { snowman: new THREE.Group(), pumpkins: null, maypole: new THREE.Group() };
     {
@@ -3666,6 +3698,8 @@ async function createVillage() {
     };
     { const r0 = roadPoint(0.5, 0), mill = BUILDINGS.find((k) => k.file === 'windmill'), ch = BUILDINGS.find((k) => k.file === 'church'), pen = PEN;
       signpost(3.6, 0.2, [['Dorf', r0.x, r0.z], ['Brücke', BRIDGE.x1, BRIDGE.z], ['Lagerplatz', CAMP.x, CAMP.z]]);
+      signpost(HELI.x + 5.6, HELI.z - 1.5, [['Berghütte', ALP.x, ALP.z], ['Gipfelkreuz', PEAK.x, PEAK.z]]);
+      signpost(ALP.x - 5.6, ALP.z + 2, [['Gipfelkreuz', PEAK.x, PEAK.z], ['Dorf', r0.x, r0.z]]);
       const sq = roadPoint(0.5, 2.6);
       signpost(sq.x, sq.z, [['Mühle', mill.x, mill.z], ['Kirche', ch.x, ch.z], ['Pferde', pen.x, pen.z], ['Fluss', 0, 0]]);
       signpost(TRACK[0].x + 2.4, TRACK[0].z - 1.6, [['Stadt 12 km', TRACK[2].x, TRACK[2].z], ['Dorf', r0.x, r0.z]]);
@@ -3691,7 +3725,7 @@ async function createVillage() {
         const piles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.09, 0.1, 1, 8), wood, 6);
         [0.28, 0.5, 0.72].forEach((u, i) => { for (const sd of [-1, 1]) { const x = x0 + len * u, top = yAt(x) - 0.05, bot = heightAt(x, z + sd * half * 0.8) - 0.3; piles.setMatrixAt(i * 2 + (sd > 0 ? 1 : 0), m4.compose(v.set(x, (top + bot) / 2, z + sd * half * 0.8), q.identity(), new THREE.Vector3(1, top - bot, 1))); } });
         for (const mesh of [planks, rails, posts, piles]) { mesh.castShadow = mesh.receiveShadow = true; mesh.frustumCulled = false; scene.add(mesh); }
-        decks.push({ x0, x1, z0: z - half, z1: z + half, yAt });
+        decks.push({ x0, x1, z0: z - half, z1: z + half, yAt, fish: true });
     }
     // Lagerplatz: Feuerstelle mit Steinkranz, Zelt und zwei Stämmen zum Sitzen
     const fire = { u: { uTime: { value: 0 } }, pos: new THREE.Vector3() };
@@ -4544,6 +4578,52 @@ function onWindowResize() {
 
 // Läuft die Szene zu langsam, wird in Stufen gröber gerendert (nie wieder feiner, damit es nicht pendelt)
 const quality = { frames: 0, t: 0, warm: 8, slow: 0 };
+// ÜBERSICHTSKARTE: Gelände, Fluss, Weg und Häuser werden einmal gemalt; darüber wandern Figur, Jeep und Hubschrauber
+const MAP = { half: 380, size: 300, base: null, tick: 0 };
+function createMap() {
+    const { half, size } = MAP, cv = document.createElement('canvas'); cv.width = cv.height = size;
+    const g2 = cv.getContext('2d'), img = g2.createImageData(size, size), toPx = (v) => (v / half * 0.5 + 0.5) * size;
+    for (let j = 0; j < size; j++) for (let i = 0; i < size; i++) {
+        const x = ((i + 0.5) / size * 2 - 1) * half, z = ((j + 0.5) / size * 2 - 1) * half, h = heightAt(x, z), o = (j * size + i) * 4;
+        const lit = 0.85 + Math.max(-0.3, Math.min(0.3, (h - heightAt(x + 5, z + 5)) * 0.06)); // Schräglicht lässt die Berge plastisch wirken
+        let r, g, b;
+        if (h < WATER_LEVEL) { r = 62; g = 128; b = 160; }
+        else if (h < 22) { r = 96 + h * 1.5; g = 138 - h * 0.8; b = 70; }
+        else if (h < 110) { const k = (h - 22) / 88; r = 122 + k * 20; g = 112 - k * 8; b = 86 + k * 14; }
+        else { r = g = 225; b = 232; }
+        img.data[o] = r * lit; img.data[o + 1] = g * lit; img.data[o + 2] = b * lit; img.data[o + 3] = 255;
+    }
+    g2.putImageData(img, 0, 0);
+    g2.strokeStyle = '#b89a6a'; g2.lineWidth = 2; g2.beginPath(); ROAD.pts.forEach((q, i) => g2[i ? 'lineTo' : 'moveTo'](toPx(q.x), toPx(q.z))); g2.stroke();
+    g2.lineWidth = 1; for (const q of PATHS) { g2.beginPath(); g2.moveTo(toPx(q.ax), toPx(q.az)); g2.lineTo(toPx(q.bx), toPx(q.bz)); g2.stroke(); }
+    g2.fillStyle = '#7a2f22'; for (const b of BUILDINGS) g2.fillRect(toPx(b.x) - 1.5, toPx(b.z) - 1.5, 3.5, 3.5);
+    g2.fillStyle = '#fff'; g2.font = '700 9px sans-serif'; g2.textAlign = 'center'; g2.textBaseline = 'middle';
+    for (const q of PADS) { g2.beginPath(); g2.arc(toPx(q.x), toPx(q.z), 5, 0, 6.3); g2.fillStyle = '#5a5c5c'; g2.fill(); g2.fillStyle = '#fff'; g2.fillText('H', toPx(q.x), toPx(q.z) + 0.5); }
+    g2.fillText('✝', toPx(PEAK.x), toPx(PEAK.z));
+    MAP.base = cv; MAP.toPx = toPx;
+}
+function updateMap() {
+    if (!MAP.base || MAP.tick++ % 6) return;
+    const g2 = document.getElementById('map').getContext('2d'), { toPx } = MAP, pp = player ? player.model.position : START;
+    g2.drawImage(MAP.base, 0, 0);
+    const dot = (x, z, color, r = 3) => { g2.beginPath(); g2.arc(toPx(x), toPx(z), r, 0, 6.3); g2.fillStyle = color; g2.fill(); };
+    if (jeep && !player?.jeep) dot(jeep.x, jeep.z, '#3c4a3c');
+    if (heli && !player?.heli) dot(heli.x, heli.z, '#e0301c');
+    if (gale.t && gale.k === 1) dot(gale.to.x, gale.to.z, '#fff0a0', 3.5);
+    const h = player?.heading ?? 0, px = toPx(pp.x), pz = toPx(pp.z); // Pfeil in Blickrichtung der Figur
+    g2.save(); g2.translate(px, pz); g2.rotate(-h); g2.beginPath(); g2.moveTo(0, 8); g2.lineTo(5, -5); g2.lineTo(0, -2); g2.lineTo(-5, -5); g2.closePath();
+    g2.fillStyle = '#fff'; g2.strokeStyle = '#1b2530'; g2.lineWidth = 1.5; g2.fill(); g2.stroke(); g2.restore();
+}
+// Höhe der tatsächlich gezeichneten Geländefläche. Weit draußen ist das Gitter grob und schneidet spitze Gipfel ab;
+// was dort steht (Gipfelkreuz, Alm), richtet sich deshalb nach der Fläche und nicht nach der Höhenformel.
+let terrainMesh = null;
+const surfRay = new THREE.Raycaster();
+function surfaceAt(x, z) {
+    if (!terrainMesh) return heightAt(x, z);
+    surfRay.set(tmpV.set(x, 600, z), tmpV2.set(0, -1, 0));
+    const hit = surfRay.intersectObject(terrainMesh, false)[0];
+    return hit ? hit.point.y : heightAt(x, z);
+}
 const meter = { frames: 0, t: 0 };
 function showFps(raw) {
     meter.frames++; meter.t += raw;
@@ -4570,6 +4650,7 @@ function animate() {
     const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
     adaptQuality(raw);
     showFps(raw);
+    updateMap();
     const time = clock.elapsedTime;
 
     state.season = Math.min(state.season + dt * 0.3, params.targetSeason);
