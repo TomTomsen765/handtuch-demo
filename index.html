@@ -6,7 +6,7 @@
     <title>Flashcat's Atmospheric Laundry</title>
     <style>
         body { margin: 0; overflow: hidden; background: #0b0f14; font-family: 'Segoe UI', system-ui, sans-serif; }
-        canvas { display: block; }
+        canvas { display: block; touch-action: none; }
         #ui {
             position: absolute; top: 20px; right: 20px;
             display: flex; flex-direction: column; gap: 12px;
@@ -38,6 +38,17 @@
         #credits p { margin: 8px 0 0; padding: 12px 14px; line-height: 1.6; letter-spacing: 0.3px; color: rgba(255,255,255,0.85);
             background: rgba(20, 28, 36, 0.6); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 12px; text-shadow: none; }
         #credits a { color: #fff; }
+        #stick {
+            position: absolute; left: 0; top: 0; z-index: 9; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.45); background: rgba(20,28,36,0.25); pointer-events: none; display: none;
+        }
+        #stick i { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(255,255,255,0.7); }
+        @media (max-width: 760px) {
+            #ui { top: 10px; right: 10px; gap: 6px; }
+            .btn { padding: 9px 12px; min-width: 150px; font-size: 9px; letter-spacing: 1px; }
+            #info { left: 10px; right: 10px; bottom: 8px; font-size: 9px; }
+            #credits { left: 10px; bottom: 26px; }
+        }
         #hello {
             position: absolute; left: 0; top: 0; z-index: 9; pointer-events: none; opacity: 0; transition: opacity 0.3s;
             padding: 5px 11px; border-radius: 12px; background: rgba(255,255,255,0.92); color: #1b2530; font-size: 13px; white-space: nowrap;
@@ -63,6 +74,7 @@
     <button class="btn" onclick="window.toggleTime()">T · Tageszeit <b id="todLabel">Tag 13:00</b></button>
 </div>
 <div id="hello"></div>
+<div id="stick"><i></i></div>
 <div id="info">Klick: Maus fangen (Esc löst) | WASD: Laufen | Shift: Rennen | Maus: Umsehen | Scrollen: Zoom | Q: Jahreszeit | E: Wetter | T: Tageszeit weiter | Z: Zeit anhalten | M: Ton an/aus | 1–4: Jahreszeit direkt</div>
 
 <details id="credits">
@@ -447,6 +459,7 @@ const decks = []; // begehbare Stege: { x0, x1, z0, z1, y }
 const onDeck = (x, z) => decks.find((d) => x > d.x0 && x < d.x1 && z > d.z0 && z < d.z1);
 const obstacles = []; // { x, z, r } – Pfosten der Wäscheleine
 const keys = new Set();
+const touch = { fwd: 0, side: 0, run: false, stick: null, used: false }; // Steuerknüppel auf Touch-Geräten
 const START = new THREE.Vector3(5, 0, 6);
 // Verfolgerkamera: Maus dreht um die Figur, WASD läuft relativ zur Blickrichtung
 const cam = { yaw: Math.atan2(START.x, START.z), pitch: 0.16, dist: 4.5, target: new THREE.Vector3() };
@@ -560,6 +573,48 @@ async function init() {
         cam.yaw -= e.movementX * 0.0025;
         cam.pitch = THREE.MathUtils.clamp(cam.pitch + e.movementY * 0.0025, -1.25, 1.35);
     });
+    // Handy und Tablet: linke Bildhälfte ist ein Steuerknüppel, rechts wischen dreht die Kamera, zwei Finger zoomen
+    const stickEl = document.getElementById('stick'), knob = stickEl.firstElementChild, looks = [];
+    const find = (list, id) => [...list].find((t) => t.identifier === id);
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!touch.used) { touch.used = true; document.getElementById('info').textContent = 'Links: Laufen (weit ziehen = Rennen) | Rechts wischen: Umsehen | Zwei Finger: Zoom'; }
+        for (const t of e.changedTouches) {
+            if (t.clientX < window.innerWidth * 0.45 && !touch.stick) {
+                touch.stick = { id: t.identifier, x: t.clientX, y: t.clientY };
+                stickEl.style.display = 'block'; stickEl.style.transform = `translate(${t.clientX}px, ${t.clientY}px)`; knob.style.transform = '';
+            } else if (looks.length < 2) looks.push({ id: t.identifier, x: t.clientX, y: t.clientY });
+        }
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const st = touch.stick && find(e.touches, touch.stick.id);
+        if (st) {
+            let dx = st.clientX - touch.stick.x, dy = st.clientY - touch.stick.y;
+            const len = Math.hypot(dx, dy), k = Math.min(1, 60 / (len || 1));
+            dx *= k; dy *= k;
+            knob.style.transform = `translate(${dx}px, ${dy}px)`;
+            touch.side = Math.abs(dx) > 9 ? dx / 60 : 0; touch.fwd = Math.abs(dy) > 9 ? -dy / 60 : 0; touch.run = len > 54;
+        }
+        const now = looks.map((l) => find(e.touches, l.id)).filter(Boolean);
+        if (now.length === 2 && looks.length === 2) { // Abstand der Finger ändert den Zoom
+            const d0 = Math.hypot(looks[0].x - looks[1].x, looks[0].y - looks[1].y), d1 = Math.hypot(now[0].clientX - now[1].clientX, now[0].clientY - now[1].clientY);
+            if (d0 > 10) cam.dist = THREE.MathUtils.clamp(cam.dist * d0 / d1, 1.6, 40);
+        } else if (now.length === 1) {
+            const l = looks.find((q) => q.id === now[0].identifier);
+            cam.yaw -= (now[0].clientX - l.x) * 0.006;
+            cam.pitch = THREE.MathUtils.clamp(cam.pitch + (now[0].clientY - l.y) * 0.006, -1.25, 1.35);
+        }
+        for (const l of looks) { const t = find(e.touches, l.id); if (t) { l.x = t.clientX; l.y = t.clientY; } }
+    }, { passive: false });
+    const touchEnd = (e) => {
+        for (const t of e.changedTouches) {
+            if (touch.stick?.id === t.identifier) { touch.stick = null; touch.fwd = touch.side = 0; touch.run = false; stickEl.style.display = 'none'; }
+            const i = looks.findIndex((l) => l.id === t.identifier);
+            if (i >= 0) looks.splice(i, 1);
+        }
+    };
+    canvas.addEventListener('touchend', touchEnd); canvas.addEventListener('touchcancel', touchEnd);
     canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         cam.dist = THREE.MathUtils.clamp(cam.dist * Math.exp(e.deltaY * 0.001), 1.6, 40);
@@ -1440,10 +1495,10 @@ function walkable(x, z, fromY) {
 
 function updatePlayer(dt) {
     const k = (...codes) => codes.some((c) => keys.has(c)) ? 1 : 0;
-    const fwd = k('KeyW', 'ArrowUp') - k('KeyS', 'ArrowDown');
-    const side = k('KeyD', 'ArrowRight') - k('KeyA', 'ArrowLeft');
+    const fwd = k('KeyW', 'ArrowUp') - k('KeyS', 'ArrowDown') + touch.fwd;
+    const side = k('KeyD', 'ArrowRight') - k('KeyA', 'ArrowLeft') + touch.side;
     const wantsMove = fwd !== 0 || side !== 0;
-    const wantsRun = wantsMove && k('ShiftLeft', 'ShiftRight');
+    const wantsRun = wantsMove && (k('ShiftLeft', 'ShiftRight') || touch.run);
 
     if (player) {
         const pl = player, p = pl.model.position;
@@ -2417,6 +2472,22 @@ async function createVillage() {
         post.position.set(lp.x, y + 1.3, lp.z); post.castShadow = true;
         scene.add(l, post); return l;
     });
+    // Laternen an den Häusern der zweiten Reihe: jede glimmt von selbst, echtes Licht werfen nur die zwei, die der Figur am nächsten sind
+    const lanterns = [], halo = softSprite();
+    for (const b of BUILDINGS) {
+        if (!b.clear || b.file === 'windmill') continue;
+        const x = b.x + Math.sin(b.face) * (b.r + 0.9) + Math.cos(b.face) * 1.5, z = b.z + Math.cos(b.face) * (b.r + 0.9) - Math.sin(b.face) * 1.5, y = heightAt(x, z);
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 2.3, 6), wood);
+        post.position.set(x, y + 1.15, z); post.castShadow = true;
+        const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.26, 0.2), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+        bulb.position.set(x, y + 2.42, z);
+        const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: halo, color: 0xffa040, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+        glow.position.copy(bulb.position); glow.scale.setScalar(2.6);
+        scene.add(post, bulb, glow);
+        obstacles.push({ x, z, r: 0.3 });
+        lanterns.push({ pos: bulb.position, bulb, glow });
+    }
+    const lanternLights = [0, 1].map(() => { const l = new THREE.PointLight(0xffa24a, 0, 22, 1.7); scene.add(l); return l; });
     for (const q of porches) {
         const l = new THREE.PointLight(0xffb060, 0, 14, 1.8);
         l.position.copy(q);
@@ -2520,7 +2591,7 @@ async function createVillage() {
         smoke.frustumCulled = false; smoke.layers.set(NO_MIRROR);
         scene.add(smoke);
     }
-    village = { glow, lamps, cats, fallLeaves, boats, mills, smokeU };
+    village = { glow, lamps, cats, fallLeaves, boats, mills, smokeU, lanterns, lanternLights };
 }
 const night0 = (day) => 1 - smooth(0.15, 0.6, day);
 function updateVillage(day, dt) {
@@ -2539,6 +2610,17 @@ function updateVillage(day, dt) {
     for (const b of village.boats) { // schaukeln leicht, im Eis liegen sie still
         const t = clock.elapsedTime * 1.2 + b.position.z, calm = 1 - S.ice;
         b.position.y = b.userData.y + Math.sin(t) * 0.025 * calm; b.rotation.z = Math.sin(t * 0.7) * 0.035 * calm;
+    }
+    if (night > 0.01 || village.lanternsOn) {
+        village.lanternsOn = night > 0.01;
+        const pp = player ? player.model.position : START;
+        for (const q of village.lanterns) { q.bulb.material.color.setRGB(6 * night, 3.2 * night, 1.2 * night); q.glow.material.opacity = night * 0.55; q.d = q.pos.distanceTo(pp); }
+        const near = [...village.lanterns].sort((a, b) => a.d - b.d);
+        village.lanternLights.forEach((l, i) => { // weit weg ausgeblendet, damit der Wechsel zur nächsten Laterne nicht auffällt
+            const q = near[i];
+            if (q) l.position.copy(q.pos);
+            l.intensity = q ? night * 30 * smooth(48, 26, q.d) : 0;
+        });
     }
     for (const l of village.lamps) { l.intensity = night * (l.userData.power ?? 45); l.userData.bulb.material.color.setRGB(6 * night, 3.2 * night, 1.2 * night); }
 }
