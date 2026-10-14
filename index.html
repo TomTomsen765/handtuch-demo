@@ -384,7 +384,15 @@ const riverW = (z) => {
     const w = 1.15 + 0.45 * noise2(z * 0.021, 3.7) + 0.2 * noise2(z * 0.067, 9.1);
     return lerp(Math.min(w, 1.05), w, smooth(15, 40, Math.abs(z)));
 };
+// Alm: eine ebene Terrasse in der Bergflanke für Hütte und Landeplatz, die zum Rand hin in den Hang übergeht
+const ALP_FLAT = { x: 284, z: 27, r: 15, edge: 34, h: null };
 function heightRaw(x, z) {
+    const d2 = (x - ALP_FLAT.x) ** 2 + (z - ALP_FLAT.z) ** 2;
+    if (d2 > ALP_FLAT.edge ** 2) return heightBase(x, z);
+    ALP_FLAT.h ??= heightBase(ALP_FLAT.x, ALP_FLAT.z);
+    return lerp(ALP_FLAT.h, heightBase(x, z), smooth(ALP_FLAT.r, ALP_FLAT.edge, Math.sqrt(d2)));
+}
+function heightBase(x, z) {
     const r = Math.hypot(x, z);
     // Abstand zur Flussmitte, durch Rauschen verbeult: Buchten, Landzungen, ausgefranste Ufer
     const d = Math.abs(x - riverX(z)) / riverW(z) + 1.4 * noise2(x * 0.085, z * 0.085) + 0.45 * noise2(x * 0.31 + 5, z * 0.31);
@@ -1794,12 +1802,12 @@ async function createPlayer() {
 }
 
 const WALK_SPEED = 1.5, RUN_SPEED = 4.2;
-function walkable(x, z, fromY) {
+function walkable(x, z, fromY, run = 0) { // run: Länge des Schritts – erlaubt ist eine Steigung, keine feste Stufe, damit es nicht von der Bildrate abhängt
     const dk = deckY(x, z);
     if (dk > -Infinity && (fromY === Infinity || Math.abs(dk - fromY) < 0.5)) return true; // nur auf gleicher Höhe betritt man Steg oder Brücke, nicht von unten
     const y = heightAt(x, z);
     if (y < WATER_LEVEL - 0.45) return false;            // höchstens knietief ins Wasser
-    if (y - fromY > 0.12 || Math.hypot(x, z) > 420) return false; // keine Steilwände hoch
+    if (y - fromY > Math.max(0.12, run * 1.25) || Math.hypot(x, z) > 420) return false; // keine Steilwände hoch (bis gut 50°)
     for (const o of obstacles) if ((o.x - x) ** 2 + (o.z - z) ** 2 < o.r * o.r) return false;
     for (const t of treeSpots) if ((t.x - x) ** 2 + (t.z - z) ** 2 < 0.49) return false;
     return true;
@@ -1873,20 +1881,24 @@ function pickUpLost() {
 }
 function carryTowel(t) {
     const pl = player;
-    if (pl.towel) { pl.towel.t.taken = false; pl.model.remove(pl.towel.mesh); pl.towel.mesh.geometry.dispose(); pl.towel = null; }
+    if (pl.towel) { pl.towel.t.taken = false; pl.towel.mesh.removeFromParent(); pl.towel.mesh.geometry.dispose(); pl.towel = null; }
     if (!t) return;
-    const geo = new THREE.PlaneGeometry(0.28, 0.86, 4, 12), pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) { // über die Schulter gelegt: vorn und hinten hängt je eine Hälfte herab
-        const along = pos.getY(i), k = Math.min(1, Math.abs(along) / 0.12);
-        pos.setXYZ(i, pos.getX(i), -Math.abs(along) * 0.92 * k - 0.02 * (1 - k), Math.sign(along) * (0.03 + 0.085 * k) + Math.abs(along) * 0.05 * Math.sign(along));
+    const geo = new THREE.PlaneGeometry(0.2, 0.86, 4, 12), pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) { // längs gefaltet über die Schulter: vorn und hinten hängt je eine Hälfte herab, außen folgt es der abfallenden Schulter
+        const along = pos.getY(i), k = Math.min(1, Math.abs(along) / 0.1), x = pos.getX(i);
+        pos.setXYZ(i, x, -Math.abs(along) * 0.94 * k - 0.025 * (1 - k) * (1 - k) - Math.max(0, x) * 0.35, Math.sign(along) * (0.02 + 0.075 * Math.sin(k * Math.PI / 2)) + Math.abs(along) * 0.03 * Math.sign(along));
     }
     geo.computeVertexNormals();
     const mesh = new THREE.Mesh(geo, t.mesh.material);
-    const box = new THREE.Box3().setFromObject(pl.model), sc = pl.model.scale.x || 1; // Schulterhöhe aus der Größe der Figur
-    mesh.position.set(0.17 / sc, (box.max.y - pl.model.position.y) * 0.845 / sc, 0);
+    // auf die linke Schulter gelegt und am Oberkörper festgemacht: es geht beim Laufen mit, statt über der Figur zu schweben
+    const b = pl.bones, sc = pl.model.scale.x || 1;
+    pl.model.updateMatrixWorld(true);
+    const at = b.LeftArm && b.Neck ? pl.model.worldToLocal(b.LeftArm.getWorldPosition(new THREE.Vector3()).lerp(b.Neck.getWorldPosition(new THREE.Vector3()), 0.4)) : new THREE.Vector3(0.14 / sc, 1.42 / sc, 0);
+    mesh.position.set(at.x, at.y + 0.06 / sc, at.z);
     mesh.scale.setScalar(1 / sc);
     mesh.castShadow = true;
     pl.model.add(mesh);
+    if (b.Spine2) { mesh.updateMatrixWorld(true); b.Spine2.attach(mesh); }
     t.taken = true;
     pl.towel = { t, mesh };
 }
@@ -1989,6 +2001,7 @@ const nearHeli = () => { const p = player?.model.position; return heli && p && !
 // FALLSCHIRM: wer hoch genug fliegt, kann mit F abspringen. Erst fällt man kurz, dann öffnet sich der Schirm; mit den Lauftasten
 // lenkt man im Sinken. Der Hubschrauber geht währenddessen von selbst zu Boden.
 let chute = null;
+const CHUTE_GRIP = 0.21; // halber Abstand der Steuergriffe über den Schultern
 function jumpOut() {
     const pl = player, h = heli, p = pl.model.position;
     pl.heli = false; pl.model.visible = true; h.ob.r = 2.6; h.auto = true;
@@ -2001,9 +2014,11 @@ function jumpOut() {
         const g2 = cv.getContext('2d'); for (let i = 0; i < 8; i++) { g2.fillStyle = i % 2 ? '#f3ead8' : '#e0572c'; g2.fillRect(i * 16, 0, 16, 8); }
         const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
         const canopy = new THREE.Mesh(new THREE.SphereGeometry(2.7, 24, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, roughness: 0.9 }));
-        canopy.position.y = 3.6; canopy.castShadow = true; chute.add(canopy);
+        // der Ursprung liegt am Gurt zwischen den Schultern: dort hängt die Figur, darum pendelt die Kappe
+        canopy.position.y = 3.2; canopy.castShadow = true; chute.add(canopy);
         const pts = [];
-        for (let k = 0; k < 8; k++) { const a = k * 0.785; pts.push(0, 1.5, 0, Math.cos(a) * 2.6, 4.75, Math.sin(a) * 2.6); }
+        for (const sd of [-1, 1]) pts.push(sd * 0.16, 0, -0.02, sd * CHUTE_GRIP, 0.42, 0); // Tragegurte von der Schulter zu den Griffen
+        for (let k = 0; k < 8; k++) { const a = k * 0.785 + 0.39, sd = Math.cos(a) > 0 ? 1 : -1; pts.push(sd * CHUTE_GRIP, 0.42, 0, Math.cos(a) * 2.61, 3.87, Math.sin(a) * 2.61); }
         chute.add(new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)), new THREE.LineBasicMaterial({ color: 0xe8e8e0 })));
         chute.traverse((o) => { o.frustumCulled = false; });
         scene.add(chute);
@@ -2027,7 +2042,8 @@ function glide(pl, fwd, side, dt) {
     p.y += c.vy * dt;
     const ground = Math.max(heightAt(p.x, p.z), deckY(p.x, p.z), WATER_LEVEL - 0.4);
     chute.visible = true;
-    chute.position.set(p.x, p.y, p.z); chute.scale.set(open, 0.25 + 0.75 * open, open);
+    const harness = pl.bones.Spine2 ? pl.bones.Spine2.getWorldPosition(new THREE.Vector3()).sub(p).y + 0.2 : 1.45; // Gurt zwischen den Schultern
+    chute.position.set(p.x, p.y + harness, p.z); chute.scale.set(open, 0.25 + 0.75 * open, open);
     chute.rotation.set(Math.sin(c.t * 1.3) * 0.06, pl.heading, Math.cos(c.t * 1.1) * 0.06);
     if (p.y <= ground) { p.y = ground; pl.chute = null; chute.visible = false; if (sound) soundBurst('lowpass', 300, 0.6, 0.12, 0.25); } // gelandet
 }
@@ -2129,12 +2145,16 @@ const ikS = new THREE.Vector3(), ikE = new THREE.Vector3(), ikH = new THREE.Vect
 function reachHand(pl, side, target) {
     const b = pl.bones, upper = b[side + 'Arm'], fore = b[side + 'ForeArm'], hand = b[side + 'Hand'];
     if (!upper || !fore || !hand) return;
+    const pole = new THREE.Vector3(Math.cos(pl.heading) * (side === 'Left' ? 0.5 : -0.5), -1, -Math.sin(pl.heading) * (side === 'Left' ? 0.5 : -0.5)); // Ellbogen hängt nach unten außen
+    reachLimb(upper, fore, hand, target, pole);
+}
+function reachLimb(upper, fore, hand, target, pole) { // zwei Glieder: das mittlere Gelenk zeigt in Richtung pole
     upper.updateWorldMatrix(true, true);
     ikS.setFromMatrixPosition(upper.matrixWorld); ikE.setFromMatrixPosition(fore.matrixWorld); ikH.setFromMatrixPosition(hand.matrixWorld);
     const la = ikS.distanceTo(ikE), lb = ikE.distanceTo(ikH), dist = Math.min(ikD.copy(target).sub(ikS).length(), (la + lb) * 0.999);
     ikD.normalize();
     const cosA = THREE.MathUtils.clamp((la * la + dist * dist - lb * lb) / (2 * la * dist), -1, 1);
-    ikP.set(Math.cos(pl.heading) * (side === 'Left' ? 0.5 : -0.5), -1, -Math.sin(pl.heading) * (side === 'Left' ? 0.5 : -0.5)); // Richtung des Ellbogens
+    ikP.copy(pole);
     ikP.addScaledVector(ikD, -ikP.dot(ikD)).normalize();
     ikT.copy(ikS).addScaledVector(ikD, la * cosA).addScaledVector(ikP, la * Math.sqrt(1 - cosA * cosA)); // Ellbogen
     aimBone(upper, fore, ikE.copy(ikT).sub(ikS).normalize());
@@ -2142,6 +2162,33 @@ function reachHand(pl, side, target) {
     aimBone(fore, hand, ikH.copy(target).sub(ikT.setFromMatrixPosition(fore.matrixWorld)).normalize());
 }
 const gripV = new THREE.Vector3();
+// Am Hang: die Hüfte sinkt so weit, dass der untere Fuß den Boden erreicht, das Knie des oberen Beins winkelt sich an
+const footQ = new THREE.Quaternion(), footW = new THREE.Vector3();
+function plantFeet(pl, dt) {
+    const b = pl.bones, p = pl.model.position, hips = b.Hips;
+    if (!hips || !hips.parent) return;
+    if (pl.hipsMod) { if (hips.position.equals(pl.hipsMod)) hips.position.copy(pl.hipsOrig); pl.hipsMod = null; } // die Animationen setzen die Hüfte nicht jedes Bild neu: Absenkung vom letzten Bild zurücknehmen
+    if (dt === 0) return;
+    pl.model.updateMatrixWorld(true);
+    const legs = [];
+    let low = 0;
+    for (const side of ['Left', 'Right']) {
+        const up = b[side + 'UpLeg'], knee = b[side + 'Leg'], foot = b[side + 'Foot'];
+        if (!up || !knee || !foot) return;
+        const at = foot.getWorldPosition(new THREE.Vector3()), off = heightAt(at.x, at.z) - p.y; // Boden unter dem Fuß gegenüber der Mitte
+        legs.push({ up, knee, foot, at, off }); low = Math.min(low, off);
+    }
+    pl.drop = (pl.drop ?? 0) + (Math.max(-0.3, low) - (pl.drop ?? 0)) * (1 - Math.exp(-dt * 12));
+    if (pl.drop > -0.01 && legs.every((l) => Math.abs(l.off) < 0.01)) return; // flach: nichts zu tun
+    pl.hipsOrig = hips.position.clone(); hips.getWorldPosition(footW); footW.y += pl.drop; hips.position.copy(hips.parent.worldToLocal(footW)); pl.hipsMod = hips.position.clone();
+    hips.updateWorldMatrix(false, true);
+    const fwd = new THREE.Vector3(Math.sin(pl.heading), 0, Math.cos(pl.heading)); // Knie zeigen nach vorn
+    for (const l of legs) {
+        l.foot.getWorldQuaternion(footQ); // der Fuß behält seine Stellung
+        reachLimb(l.up, l.knee, l.foot, l.at.setY(l.at.y + l.off), fwd);
+        l.foot.quaternion.copy(l.foot.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(footQ));
+    }
+}
 function holdWheel(pl) {
     const p = pl.model.position, sh = Math.sin(pl.heading), ch = Math.cos(pl.heading), [gw, gu, gf] = JEEP.grip, hipY = p.y + (pl.hipH ?? 0.95);
     const steer = (pl.input?.side ?? 0) * 0.06; // beim Lenken wandern die Hände etwas mit
@@ -2362,14 +2409,18 @@ function updatePlayer(dt) {
             let turn = Math.atan2(dx, dz) - pl.heading;
             turn = Math.atan2(Math.sin(turn), Math.cos(turn));
             pl.heading += turn * (1 - Math.exp(-dt * 12));
-            const step = lerp(WALK_SPEED, RUN_SPEED, pl.running) * pl.moving * dt;
+            // bergauf geht es langsamer, je steiler, desto mehr
+            const grade = Math.max(0, (heightAt(p.x + dx * 0.5, p.z + dz * 0.5) - heightAt(p.x, p.z)) / 0.5);
+            const step = lerp(WALK_SPEED, RUN_SPEED, pl.running) * pl.moving * dt / (1 + grade * 1.1);
             const nx = p.x + dx * step, nz = p.z + dz * step;
             // Leute und größere Tiere stehen im Weg; weg von ihnen kommt man immer
             const bump = (x, z) => critters.some((c) => {
                 const r = !c.model.visible || c.ridden || c.hen || c.def.hare ? 0 : c.human ? 0.42 : (c.def.h ?? 0.7) > 1.2 ? 0.75 : 0.45, d2 = (c.x - x) ** 2 + (c.z - z) ** 2;
                 return d2 < r * r && d2 < (c.x - p.x) ** 2 + (c.z - p.z) ** 2;
             });
-            const free = (x, z) => walkable(x, z, p.y) && !bump(x, z);
+            // auf der Brücke hält das Geländer: seitlich kommt man nicht herunter, nur an den Enden
+            const dk = onDeck(p.x, p.z), railed = dk?.rail && p.y > heightAt(p.x, p.z) + 0.2;
+            const free = (x, z) => walkable(x, z, p.y, step) && !bump(x, z) && !(railed && x > dk.x0 && x < dk.x1 && Math.abs(z - (dk.z0 + dk.z1) / 2) > (dk.z1 - dk.z0) / 2 - 0.22 && Math.abs(z - (dk.z0 + dk.z1) / 2) > Math.abs(p.z - (dk.z0 + dk.z1) / 2));
             if (free(nx, nz)) { p.x = nx; p.z = nz; }
             else if (free(nx, p.z)) p.x = nx;      // an Hindernissen entlanggleiten
             else if (free(p.x, nz)) p.z = nz;
@@ -2387,6 +2438,11 @@ function updatePlayer(dt) {
         pl.sit = (pl.sit ?? 0) + ((pl.sitting ? 1 : 0) - (pl.sit ?? 0)) * (1 - Math.exp(-dt * 7));
         if (pl.horse) applySit(pl, true);
         if (pl.jeep) { applySit(pl); holdWheel(pl); }
+        if (!pl.boat && !pl.sitting && !pl.horse && !pl.jeep && !pl.heli && !pl.chute && !onDeck(p.x, p.z)) plantFeet(pl, dt); else { pl.drop = 0; plantFeet(pl, 0); }
+        if (pl.chute && chute) { // am Schirm halten beide Hände die Steuergriffe über dem Kopf
+            chute.updateMatrixWorld();
+            for (const [side, sd] of [['Left', 1], ['Right', -1]]) reachHand(pl, side, gripV.set(sd * CHUTE_GRIP, 0.42, 0).applyMatrix4(chute.matrixWorld));
+        }
         if (pl.fishing) updateFishing(pl, dt, clock.elapsedTime);
         if (pl.sitting) { pl.hipH ??= pl.bones.Hips ? pl.bones.Hips.getWorldPosition(new THREE.Vector3()).y - p.y : 0.95; p.y += (pl.sitting.h + 0.1 - pl.hipH) * pl.sit; applySit(pl); }
 
@@ -3020,7 +3076,7 @@ function texturize(mat, inv) {
  * KORNFELD: Halme in Saatreihen, jeder mit einer Ähre. Höhe und Farbe kommen aus der Jahreszeit (SEASONS: wheatH, wheatCol),
  * nach der Ernte bleiben Stoppeln und Strohballen.
  */
-const wheatU = { uWheatH: { value: 1 }, uEar: { value: new THREE.Color() }, uStem: { value: new THREE.Color() } };
+const wheatU = { uJeep: { value: new THREE.Vector4(0, 0, 0, 0) }, uWalker: { value: new THREE.Vector3(0, 0, 0) }, uWheatH: { value: 1 }, uEar: { value: new THREE.Color() }, uStem: { value: new THREE.Color() } };
 let bales = null;
 function createWheat() {
     const stalk = new THREE.BufferGeometry(); // dünner Halm, oben die breitere Ähre
@@ -3030,7 +3086,7 @@ function createWheat() {
     const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.9 });
     mat.onBeforeCompile = (shader) => {
         Object.assign(shader.uniforms, wheatU, { uTime: grassUniforms.uTime, uWind: grassUniforms.uWind, uSnow: grassUniforms.uSnow });
-        shader.vertexShader = 'uniform float uTime; uniform float uWind; uniform float uWheatH; varying float vStalkH; varying float vStalkRnd;\n'
+        shader.vertexShader = 'uniform float uTime; uniform float uWind; uniform float uWheatH; uniform vec4 uJeep; uniform vec3 uWalker; varying float vStalkH; varying float vStalkRnd;\n'
             + shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
                 vStalkH = position.y;
                 vec3 ip = instanceMatrix[3].xyz;
@@ -3040,7 +3096,24 @@ function createWheat() {
                 float gph = ip.x * 0.22 + ip.z * 0.17;
                 float bend = (sin(uTime * 1.3 + gph) * 0.5 + sin(uTime * 2.7 + gph * 2.1) * 0.2 + 0.3) * uWind * uWheatH;
                 transformed.x += bend * position.y * position.y * 1.7;
-                transformed.z += bend * position.y * position.y * 0.5;`);
+                transformed.z += bend * position.y * position.y * 0.5;
+                // Jeep und Figur drücken die Halme zur Seite und flach, statt durch sie hindurchzuragen
+                vec2 push = vec2(0.0); float press = 0.0;
+                if (uJeep.w > 0.5) {
+                    vec2 d = ip.xz - uJeep.xy, fw = vec2(sin(uJeep.z), cos(uJeep.z)), rt = vec2(fw.y, -fw.x);
+                    float lx = dot(d, rt), lz = dot(d, fw);
+                    float inside = (1.0 - smoothstep(1.0, 1.45, abs(lx))) * (1.0 - smoothstep(2.0, 2.5, abs(lz)));
+                    press = max(press, inside);
+                    push += rt * sign(lx + 0.001) * inside;
+                }
+                vec2 dw = ip.xz - uWalker.xy; float rw = length(dw);
+                float near = 1.0 - smoothstep(uWalker.z * 0.4, uWalker.z, rw);
+                push += dw / max(rw, 0.01) * near; press = max(press, near * 0.45);
+                float hh = position.y * position.y;
+                transformed.y *= 1.0 - press * 0.82;
+                vec2 pushL = vec2(dot(push, vec2(instanceMatrix[0].x, instanceMatrix[0].z)) / max(dot(instanceMatrix[0].xz, instanceMatrix[0].xz), 1e-6),
+                                  dot(push, vec2(instanceMatrix[2].x, instanceMatrix[2].z)) / max(dot(instanceMatrix[2].xz, instanceMatrix[2].xz), 1e-6));
+                transformed.xz += pushL * hh * 0.55 * uWheatH;`);
         shader.fragmentShader = 'uniform vec3 uEar; uniform vec3 uStem; uniform float uSnow; varying float vStalkH; varying float vStalkRnd;\n'
             + shader.fragmentShader
                 .replace('#include <map_fragment>', `diffuseColor.rgb = mix(uStem, uEar, smoothstep(0.5, 0.78, vStalkH)) * (0.75 + 0.5 * vStalkRnd);
@@ -3898,7 +3971,7 @@ async function createVillage() {
         const piles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.09, 0.1, 1, 8), wood, 6);
         [0.28, 0.5, 0.72].forEach((u, i) => { for (const sd of [-1, 1]) { const x = x0 + len * u, top = yAt(x) - 0.05, bot = heightAt(x, z + sd * half * 0.8) - 0.3; piles.setMatrixAt(i * 2 + (sd > 0 ? 1 : 0), m4.compose(v.set(x, (top + bot) / 2, z + sd * half * 0.8), q.identity(), new THREE.Vector3(1, top - bot, 1))); } });
         for (const mesh of [planks, rails, posts, piles]) { mesh.castShadow = mesh.receiveShadow = true; mesh.frustumCulled = false; scene.add(mesh); }
-        decks.push({ x0, x1, z0: z - half, z1: z + half, yAt, fish: true });
+        decks.push({ x0, x1, z0: z - half, z1: z + half, yAt, fish: true, rail: true });
     }
     // Lagerplatz: Feuerstelle mit Steinkranz, Zelt und zwei Stämmen zum Sitzen
     const fire = { u: { uTime: { value: 0 } }, pos: new THREE.Vector3() };
@@ -4373,9 +4446,33 @@ function updateCritters(dt, time) {
         // Dorfbewohner grüßen im Vorbeigehen – nicht jedes Mal und nie zwei zugleich
         c.greet = (c.greet ?? 0) - dt;
         if (c.human && dPlayer < 3.6 && c.greet < 0 && time > hello.until + 1.5) { c.greet = 30 + rnd() * 30; sayHello(c, time); }
-        if (d.follow && dPlayer < 18 && dPlayer > 2.8) { // Hunde laufen dem Menschen nach
-            c.state = dPlayer > 7 ? 'flee' : 'walk'; c.tx = pp.x; c.tz = pp.z;
-        } else if (d.follow && dPlayer <= 2.8 && c.state !== 'idle') { c.state = 'idle'; c.timer = 2; }
+        const driving = player?.jeep && jeep;
+        c.evade = Math.max(0, (c.evade ?? 0) - dt);
+        if (d.follow && !c.evade) { // Hunde laufen dem Menschen nach – dem Jeep seitlich hinterher, nicht vor die Räder
+            let fx = pp.x, fz = pp.z, stop = 2.8;
+            if (driving) {
+                c.side ??= rnd() < 0.5 ? 1 : -1;
+                const sh = Math.sin(jeep.heading), ch = Math.cos(jeep.heading);
+                fx = jeep.x - sh * 4.5 + ch * c.side * 2.6; fz = jeep.z - ch * 4.5 - sh * c.side * 2.6; stop = 1.2;
+            }
+            const df = Math.hypot(c.x - fx, c.z - fz);
+            if (dPlayer < (driving ? 30 : 18) && df > stop) { c.state = df > 7 ? 'flee' : 'walk'; c.tx = fx; c.tz = fz; }
+            else if (df <= stop && c.state !== 'idle') { c.state = 'idle'; c.timer = 2; }
+        }
+        const gas = driving ? Math.sign(player.input?.fwd ?? 0) : 0; // auch wenn der Jeep gerade steht, aber Gas gegeben wird
+        if (driving && (Math.abs(jeep.speed) > 0.3 || gas) && c.model.visible) { // wer vor dem fahrenden Jeep steht, geht zur Seite
+            const sh = Math.sin(jeep.heading), ch = Math.cos(jeep.heading), dir = gas || Math.sign(jeep.speed);
+            const rx = c.x - jeep.x, rz = c.z - jeep.z, lx = rx * ch - rz * sh, lz = (rx * sh + rz * ch) * dir;
+            if (lz > -1.2 && lz < 3 + Math.abs(jeep.speed) * 1.3 && Math.abs(lx) < 2.4) {
+                c.side ??= rnd() < 0.5 ? 1 : -1;
+                const first = Math.abs(lx) > 0.3 ? Math.sign(lx) : c.side;
+                const at = (sd, w) => [jeep.x + ch * sd * w + sh * dir * lz, jeep.z - sh * sd * w + ch * dir * lz];
+                for (const sd of [first, -first]) { // die ganze Strecke zur Seite muss frei sein, sonst die andere Seite
+                    if (![2.6, 4].every((w) => critterOk(...at(sd, w), h.side))) continue;
+                    [c.tx, c.tz] = at(sd, 4); c.state = 'flee'; c.evade = 1.2; break;
+                }
+            }
+        }
         if (c.state === 'idle') {
             if ((c.timer -= dt) < 0) {
                 const a = rnd() * 6.28, r = 2 + rnd() * ((h.roam ?? 12) - 2), spot = h.pick?.(); // Dorfbewohner gehen den Weg entlang
@@ -4910,6 +5007,8 @@ function animate() {
     fish.uniforms.uWaterCol.value.copy(wu.waterColor.value).multiplyScalar(wu.uLight.value);
 
     wheatU.uWheatH.value = S.wheatH;
+    if (jeep) wheatU.uJeep.value.set(jeep.x, jeep.z, jeep.heading, 1);
+    if (player) { const pp = player.model.position; wheatU.uWalker.value.set(pp.x, pp.z, player.horse ? 1.1 : player.heli || player.jeep || player.chute ? 0.01 : 0.75); }
     wheatU.uEar.value.copy(S.wheatCol).multiplyScalar(1 - state.wet * 0.15);
     wheatU.uStem.value.copy(S.wheatCol).lerp(tmpColor.set(0x5f8a2e), 0.4).multiplyScalar(0.8);
     if (bales) bales.visible = S.bales > 0.5;
