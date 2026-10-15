@@ -568,6 +568,7 @@ const pathDist = (x, z) => {
 };
 const HEDGE = { h: 1.7, foot: 0.26, half: 0.36 }; // Höhe, Beginn des Laubs über dem Boden, halbe Dicke
 const hedgeUniforms = { uTime: { value: 0 }, uTurn: { value: 0 }, uWinter: { value: 0 } };
+const hedgeCore = { mat: null }; // dunkler Kern der Hecken: färbt sich mit dem Laub
 // Häuser der zweiten Reihe bekommen einen runden Garten mit Zaun (yard: Radius)
 const YARDS = BUILDINGS.filter((b) => b.clear && b.file !== 'windmill' && !b.alp);
 for (const b of YARDS) b.yard = b.r + 2.8;
@@ -3241,7 +3242,8 @@ function createHedges(leafMap, alphaTest) {
                 vec3 green = mix(vec3(0.13, 0.3, 0.05), vec3(0.45, 0.58, 0.1), r1 * r1);
                 vec3 warm = mix(vec3(0.95, 0.68, 0.1), vec3(0.8, 0.28, 0.08), r2);
                 // einzelne Partien verfärben sich früher als der Rest
-                float turn = smoothstep(0.55, 0.95, vLeaf.y * 0.75 + r2 * 0.35 + uTurn * 0.85);
+                float early = vLeaf.y * 0.5 + r2 * 0.5; // oben und vereinzelt zuerst – aber nur, wenn überhaupt Herbst ist
+                float turn = smoothstep(0.0, 0.35, uTurn * 1.3 - (1.0 - early) * 0.6);
                 vec3 lc = mix(green, warm, turn);
                 lc = mix(lc, mix(vec3(0.42, 0.22, 0.08), vec3(0.6, 0.36, 0.14), r1), uWinter * 0.95);
                 lc = mix(lc, vec3(0.86, 0.9, 0.95), uWinter * smoothstep(0.55, 1.0, r2) * 0.5);
@@ -3305,7 +3307,7 @@ function createLots(wood) {
     const hedgeTex = loadTex(ASSETS.grass, '#3d6a2c'); hedgeTex.repeat.set(1.5, 1.5);
     const paint = batch(box, new THREE.MeshStandardMaterial({ roughness: 0.85 }), 2600);                       // gestrichenes Holz, Erde, Stein (Farbe je Teil)
     const timber = batch(box, wood, 500), log = batch(cyl, wood, 900);
-    const hedge = batch(box, new THREE.MeshStandardMaterial({ map: hedgeTex, roughness: 1 }), 400);
+    const hedge = batch(box, hedgeCore.mat = new THREE.MeshStandardMaterial({ map: hedgeTex, roughness: 1 }), 400);
     const blob = batch(ico, new THREE.MeshStandardMaterial({ roughness: 0.9, flatShading: true }), 1400);
     const apple = batch(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshStandardMaterial({ roughness: 0.45 }), 80);
     const WHITE = 0xe9e3d2, SOIL = 0x3a2a1c, STONE = 0x9a958a;
@@ -3511,13 +3513,16 @@ async function createVillage() {
         { // nachmessen an den echten Fußpunkten des Modells: steht eine Ecke über dem Boden, sinkt das Haus, bis fast alles aufliegt
             const pts = [], v = new THREE.Vector3();
             let minY = Infinity;
+            let total = 0;
+            m.traverse((o) => { if (o.isMesh && !o.isSkinnedMesh) total += o.geometry.attributes.position.count; });
+            const step = Math.max(1, Math.ceil(total / 6000)); // höchstens rund 6000 Punkte je Gebäude, sonst dauert das Laden ewig
             m.traverse((o) => {
                 if (!o.isMesh || o.isSkinnedMesh) return;
-                const pa = o.geometry.attributes.position, step = Math.max(1, Math.floor(pa.count / 15000));
+                const pa = o.geometry.attributes.position;
                 for (let i = 0; i < pa.count; i += step) { v.fromBufferAttribute(pa, i).applyMatrix4(o.matrixWorld); pts.push(v.x, v.y, v.z); minY = Math.min(minY, v.y); }
             });
             const gaps = [];
-            for (let i = 0; i < pts.length; i += 3) if (pts[i + 1] < minY + 0.35) gaps.push(pts[i + 1] - Math.max(gAt(pts[i], pts[i + 2]), WATER_LEVEL));
+            for (let i = 0; i < pts.length; i += 3) if (pts[i + 1] < minY + 0.35) gaps.push(pts[i + 1] - Math.max(heightAt(pts[i], pts[i + 2]), WATER_LEVEL)); // nicht surfaceAt: das tastet das Geländenetz ab und ist für Tausende Punkte viel zu langsam
             gaps.sort((p, q) => p - q);
             const drop = gaps.length ? gaps[Math.floor(gaps.length * 0.92)] : 0;
             if (drop > 0.02) { holder.position.y -= Math.min(drop, 0.6); holder.updateMatrixWorld(true); }
@@ -3916,7 +3921,7 @@ async function createVillage() {
         for (const y of [0.8, 0.95, 1.08]) mk(ball, 0x15120f, 0, y, 0.3, sm).scale.setScalar(0.028);
         for (const sx of [-1, 1]) { const arm = mk(new THREE.CylinderGeometry(0.012, 0.016, 0.55, 5), 0x4a3422, sx * 0.48, 1.02, 0, sm); arm.rotation.z = sx * 1.1; }
         mk(new THREE.CylinderGeometry(0.17, 0.17, 0.2, 14), 0x1b1b20, 0, 1.64, 0, sm); mk(new THREE.CylinderGeometry(0.26, 0.26, 0.025, 14), 0x1b1b20, 0, 1.54, 0, sm);
-        obstacles.push({ x: sp.x, z: sp.z, r: 0.5 });
+        seasonal.snowOb = { x: sp.x, z: sp.z, r: 0 }; obstacles.push(seasonal.snowOb); // im Weg nur, wenn er da ist
         // Kürbisse neben den Haustüren und am Lagerplatz
         const spots = [...LOTS.flatMap((l) => [lotW(l, l.i % 2 ? 1.5 : -1.5, 4.1), lotW(l, l.i % 2 ? 1.95 : -1.95, 3.85), lotW(l, lotSide(l) * 2.9, -4.6)]), { x: CAMP.x - 1.2, z: CAMP.z + 1.9 }, { x: CAMP.x - 1.7, z: CAMP.z + 1.6 }];
         const pk = new THREE.SphereGeometry(1, 14, 10), pp = pk.attributes.position;
@@ -3943,7 +3948,7 @@ async function createVillage() {
         mk(new THREE.ConeGeometry(0.3, 0.9, 8), 0x3f7a2c, 0, 7.9, 0, mp);
         const ribbons = [0xd8402c, 0xf2c21e, 0xf4f1ea, 0x2f62b8, 0xd8402c, 0xf2c21e, 0xf4f1ea, 0x2f62b8];
         seasonal.ribbons = ribbons.map((color, k) => { const a = k / ribbons.length * Math.PI * 2, rb = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 1.5).translate(0, -0.75, 0), new THREE.MeshStandardMaterial({ color, roughness: 0.8, side: THREE.DoubleSide })); rb.position.set(Math.cos(a) * 0.75, 6.05, Math.sin(a) * 0.75); rb.rotation.y = -a; mp.add(rb); return rb; });
-        obstacles.push({ x: mq.x, z: mq.z, r: 0.35 });
+        seasonal.poleOb = { x: mq.x, z: mq.z, r: 0 }; obstacles.push(seasonal.poleOb);
         scene.add(sm, seasonal.pumpkins, mp);
     }
     // Wegweiser an den Abzweigungen: Bretter zeigen in die Richtung des Ziels, von beiden Seiten lesbar
@@ -4111,6 +4116,7 @@ function updateVillage(day, dt) {
     sn.snowman.visible = S.snowiness > 0.25; sn.snowman.scale.setScalar(0.3 + 0.7 * smooth(0.25, 0.9, S.snowiness));
     sn.pumpkins.visible = S.autumn > 0.35;
     sn.maypole.visible = S.spring > 0.5;
+    sn.snowOb.r = sn.snowman.visible ? 0.5 : 0; sn.poleOb.r = sn.maypole.visible ? 0.35 : 0;
     if (sn.maypole.visible) sn.ribbons.forEach((rb, k) => { rb.rotation.x = Math.sin(clock.elapsedTime * 1.7 + k) * (0.12 + state.wind * 0.35); }); // Bänder wehen
     for (const b of village.boats) { // schaukeln leicht, im Eis liegen sie still
         const t = clock.elapsedTime * 1.2 + b.position.z, calm = 1 - S.ice;
@@ -5085,6 +5091,7 @@ function animate() {
     hedgeUniforms.uTime.value = time * (1 + w);
     hedgeUniforms.uTurn.value = S.autumn;
     hedgeUniforms.uWinter.value = S.frost;
+    if (hedgeCore.mat) hedgeCore.mat.color.setRGB(1, 1, 1).lerp(tmpColor.setRGB(1.25, 0.72, 0.42), Math.max(S.autumn * 0.6, S.frost)); // im Winter braun wie das Laub, nicht grün
     flowers.uniforms.uBloom.value = clamp01(1 - S.frost * 2) * (1 - 0.8 * S.autumn);
     flowers.mesh.visible = flowers.uniforms.uBloom.value > 0.02;
     lilies.visible = S.ice < 0.3;
